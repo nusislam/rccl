@@ -529,9 +529,10 @@ static ncclResult_t scheduleCollTasksToPlan(
       void* regBufSend[NCCL_MAX_LOCAL_RANKS];
       void* regBufRecv[NCCL_MAX_LOCAL_RANKS];
       if (plan->persistent && ncclParamGraphRegister() &&
-          info.algorithm == NCCL_ALGO_COLLNET_DIRECT &&   // limited to CollNetDirect for now
           comm->intraHighestTransportType == TRANSPORT_P2P && // only when all ranks can p2p each other
-          comm->intraRanks < comm->localRanks) { // only with inter-process & intra-node peers
+          comm->intraRanks < comm->localRanks && 
+          (info.algorithm == NCCL_ALGO_COLLNET_DIRECT || info.coll == ncclFuncAllGather)) { // only with inter-process & intra-node peers
+        printf("Here\n");											   
         NCCLCHECK(registerIntraNodeBuffers(comm, plan, &info, &regBufUsed, regBufSend, regBufRecv));
       }
 
