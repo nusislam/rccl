@@ -172,7 +172,7 @@ struct ncclKernelPlan {
   void *kernelFn;
   int channelUbound; // only channels c < channelUbound are present
   int channelCount; // number of channels present
-  uint64_t channelMask; // which channels are present, channelCount == popcount(channelMask)
+  uint64_t channelMask[4]; // which channels are present, channelCount == popcount(channelMask)
   bool hasProxyOps; // does any channel have a non-empty proxyOpQueue
   int threadPerBlock;
   // workHeap fields are null until uploadWorkFifo() or preparePersistentKernel()

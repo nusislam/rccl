@@ -466,21 +466,32 @@ static __forceinline__ __device__ void ncclRedopPtrDeref(struct ncclWorkElem* we
 
 template<ncclFunc_t Fn, typename T, typename RedOp, int Algo, int Proto, int FnIndex, bool COLLTRACE>
 __forceinline__ __device__ void ncclKernel(
-    struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead
+    struct ncclDevComm* comm, uint64_t* channelMask, struct ncclWork* workHead
   )  {
   const int tid = threadIdx.x;
   int x = tid;
+  int total = 0, y;	  
+
   switch (tid/WARP_SIZE) {
   case 0:
-    if (channelMask & (1ull<<x)) {
-      int y = __popcll(channelMask & ((1ull<<x)-1));
-      if (blockIdx.x == y) ncclShmem.channelId = x;
+    for (int i = 0; i < 4; i++) {	  
+    	if (channelMask[i] & (1ull<<x)) {
+      		y = __popcll(channelMask[i] & ((1ull<<x)-1));
+		y += total;
+      		if (blockIdx.x == y) ncclShmem.channelId = x;
+	}
+
+    	total = y;
     }
-    if (32 < MAXCHANNELS) {
-      x = 32 + tid;
-      if (channelMask & (1ull<<x)) {
-        int y = __popcll(channelMask & ((1ull<<x)-1));
-        if (blockIdx.x == y) ncclShmem.channelId = x;
+    if (WARP_SIZE < MAXCHANNELS) {
+      x = WARP_SIZE + tid;
+      for (int i = 0; i < 4; i++) {
+      	if (channelMask[i] & (1ull<<x)) {
+        	y = __popcll(channelMask[i] & ((1ull<<x)-1));
+		y += total;
+        	if (blockIdx.x == y) ncclShmem.channelId = x;
+      	}
+	total = y;
       }
     }
     break;
@@ -608,18 +619,18 @@ __forceinline__ __device__ void ncclKernel(
 #ifdef ENABLE_COLLTRACE
 #define IMPL_COLL_KERN(func, algo, proto, devredop, type, fIndex) \
 __launch_bounds__(NCCL_MAX_NTHREADS, 1) \
-__global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
+__global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t* channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, false>(comm, channelMask, workHead); \
 } \
  \
 __launch_bounds__(NCCL_MAX_NTHREADS, 1) \
-__global__ void NCCL_KERN_NAME_DEBUG(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
+__global__ void NCCL_KERN_NAME_DEBUG(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t* channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, true>(comm, channelMask, workHead); \
 }
 #else
 #define IMPL_COLL_KERN(func, algo, proto, devredop, type, fIndex) \
 __launch_bounds__(NCCL_MAX_NTHREADS, 1) \
-__global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead) { \
+__global__ void NCCL_KERN_NAME(func, algo, proto, devredop, type)(struct ncclDevComm* comm, uint64_t* channelMask, struct ncclWork* workHead) { \
   ncclKernel<ncclFunc##func, type, Func##devredop<type>, NCCL_ALGO_##algo, NCCL_PROTO_##proto, fIndex, false>(comm, channelMask, workHead); \
 }
 #endif

@@ -59,12 +59,17 @@ ncclResult_t ncclTransportP2pConnect(struct ncclComm* comm, int channelId, int n
   for (int i=0; i<nrecv; i++) {
     int peer = peerRecv[i];
     if (peer == -1 || peer >= comm->nRanks || peer == comm->rank || channel->peers[peer]->recv[connIndex].connected) continue;
-    comm->connectRecv[peer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)] |= mask;
+    for (int j = 0; j < 4; j++) {
+	/* is this right? */
+    	comm->connectRecv[4*(peer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j] |= mask;
+    }
   }
   for (int i=0; i<nsend; i++) {
     int peer = peerSend[i];
     if (peer == -1 || peer >= comm->nRanks || peer == comm->rank || channel->peers[peer]->send[connIndex].connected) continue;
-    comm->connectSend[peer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)] |= mask;
+    for (int j = 0; j < 4; j++) {
+    	comm->connectSend[4*(peer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j] |= mask;
+    }
   }
   return ncclSuccess;
 }
@@ -93,8 +98,10 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
     int bootstrapTag = (i<<8) + (graph ? graph->id+1 : 0);
     int recvPeer = (comm->rank - i + comm->nRanks) % comm->nRanks;
     int sendPeer = (comm->rank + i) % comm->nRanks;
-    uint64_t recvMask = comm->connectRecv[recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)];
-    uint64_t sendMask = comm->connectSend[sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)];
+
+    for (int j = 0; j < 4; j++) {
+    uint64_t recvMask = comm->connectRecv[4*(recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j];
+    uint64_t sendMask = comm->connectSend[4*(sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j];
 
     // Data[i] contains all ncclConnect information for all send and receive connections with a given send and recv peer
     // This data is packed in the array based on the number of sendChannels and recvChannels connected with these peers
@@ -140,6 +147,7 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
       if (recvChannels) NCCLCHECKGOTO(bootstrapRecv(comm->bootstrap, recvPeer, bootstrapTag, recvData[i], sizeof(struct ncclConnect)*recvChannels), ret, fail);
     }
     TIME_STOP(2);
+    }
   }
 
   // Loop until all channels with all ranks have been connected
@@ -150,8 +158,10 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
     for (int i=1; i<comm->nRanks; i++) {
       int recvPeer = (comm->rank - i + comm->nRanks) % comm->nRanks;
       int sendPeer = (comm->rank + i) % comm->nRanks;
-      uint64_t recvMask = comm->connectRecv[recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)];
-      uint64_t sendMask = comm->connectSend[sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)];
+      for (int j = 0; j < 4; j++) {
+
+      uint64_t recvMask = comm->connectRecv[4*(recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j];
+      uint64_t sendMask = comm->connectSend[4*(sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j];
 
       int sendDataOffset = 0;
       int recvDataOffset = 0;
@@ -195,6 +205,7 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
           }
           TIME_STOP(4);
       }
+	}
     }
   }
 
@@ -202,7 +213,10 @@ ncclResult_t ncclTransportP2pSetup(struct ncclComm* comm, struct ncclTopoGraph* 
   for (int i=1; i<comm->nRanks; i++) {
     int recvPeer = (comm->rank - i + comm->nRanks) % comm->nRanks;
     int sendPeer = (comm->rank + i) % comm->nRanks;
-    comm->connectRecv[recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)] = comm->connectSend[sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0)] = 0UL;
+    for (int j = 0; j < 4; j++) {
+    	comm->connectRecv[4*(recvPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j] = comm->connectSend[4*(sendPeer+comm->nRanks*(connIndex == NCCL_CONN_IDX_P2P_NET ? NCCL_CONN_IDX_P2P_NET : 0))+j] = 0UL;
+
+    }
     free(data[i]);
   }
 

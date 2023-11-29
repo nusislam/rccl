@@ -215,8 +215,10 @@ static void groupCleanup(struct ncclComm** groupCommHeadPtr, struct ncclComm** g
     for (int i = 0; i < comm->nRanks; i++) {
       comm->tasks.peers[i].sendSeen = false;
       comm->tasks.peers[i].recvSeen = false;
-      comm->connectSend[i] = 0UL;
-      comm->connectRecv[i] = 0UL;
+      for (int j = 0; j < 4; j++) {
+      	comm->connectSend[4*i+j] = 0UL;
+      	comm->connectRecv[4*i+j] = 0UL;
+      }
     }
     comm->unlaunchedPlansHead = nullptr;
     // Reclaim abandoned kernel plan memory. Note ncclWork structs were already

@@ -559,10 +559,10 @@ static ncclResult_t commAlloc(struct ncclComm* comm, struct ncclComm* parent, in
   comm->preconnectNext = reinterpret_cast<struct ncclComm*>(0x1);
   comm->channelSize = ncclParamAggChannelSize();
 
-  static_assert(MAXCHANNELS <= sizeof(*comm->connectSend)*8, "comm->connectSend must have enough bits for all channels");
-  static_assert(MAXCHANNELS <= sizeof(*comm->connectRecv)*8, "comm->connectRecv must have enough bits for all channels");
-  NCCLCHECK(ncclCalloc(&comm->connectSend, comm->nRanks*NCCL_MAX_CONNS));
-  NCCLCHECK(ncclCalloc(&comm->connectRecv, comm->nRanks*NCCL_MAX_CONNS));
+  //static_assert(MAXCHANNELS <= sizeof(*comm->connectSend)*8, "comm->connectSend must have enough bits for all channels");
+  //static_assert(MAXCHANNELS <= sizeof(*comm->connectRecv)*8, "comm->connectRecv must have enough bits for all channels");
+  NCCLCHECK(ncclCalloc(&comm->connectSend, comm->nRanks*NCCL_MAX_CONNS*4));
+  NCCLCHECK(ncclCalloc(&comm->connectRecv, comm->nRanks*NCCL_MAX_CONNS*4));
 
   // Mark channels as non initialized.
   for (int c=0; c < MAXCHANNELS; c++) comm->channels[c].id = -1;
@@ -1519,13 +1519,17 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, struct ncclComm* p
       for (int c=0; c<comm->p2pnChannelsPerPeer; c++) {
         NCCLCHECKGOTO(ncclChannelCompute(comm, peer, c, ncclFuncSend, &channelId), ret, fail);
         if (comm->channels[channelId].peers[peer]->send[1].connected == 0) {
-          comm->connectSend[peer] |= (1UL<<channelId);
+	  for (int i = 0; i < 4; i++) {		
+          	comm->connectSend[4*peer+i] |= (1UL<<channelId);
+	  }
         }
       }
       for (int c=0; c<comm->p2pnChannelsPerPeer; c++) {
         NCCLCHECKGOTO(ncclChannelCompute(comm, peer, c, ncclFuncRecv, &channelId), ret, fail);
         if (comm->channels[channelId].peers[peer]->recv[1].connected == 0) {
-          comm->connectRecv[peer] |= (1UL<<channelId);
+	  for (int i = 0; i < 4; i++) {
+          	comm->connectRecv[4*peer+i] |= (1UL<<channelId);
+	  }
         }
       }
     }
