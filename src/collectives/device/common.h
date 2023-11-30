@@ -472,15 +472,17 @@ __forceinline__ __device__ void ncclKernel(
   const int tid = threadIdx.x;
   int x = tid;
   int total = 0, y;
+  int num = MAXCHANNELS/64 > 0 ? MAXCHANNELS/64 : 1;
+
   switch (tid/WARP_SIZE) {
   case 0:
-    for (int i = 0; i < 4; i++) {	  
+    for (int i = 0; i < num; i++) {	  
     	if (channelMask.masks[i] & (1ull<<x)) {
       		y = __popcll(channelMask.masks[i] & ((1ull<<x)-1));
-      		y+= total;
+      		y= total + y;
       		if (blockIdx.x == y) ncclShmem.channelId = x;
     	}
-    	if (WARP_SIZE < MAXCHANNELS) {
+    	if (WARP_SIZE < 64) {
       		x = WARP_SIZE + tid;
       		if (channelMask.masks[i] & (1ull<<x)) {
         		y = __popcll(channelMask.masks[i] & ((1ull<<x)-1));
@@ -488,7 +490,7 @@ __forceinline__ __device__ void ncclKernel(
         		if (blockIdx.x == y) ncclShmem.channelId = x;
       		}
     	}
-	total = y;
+	total = __popcll(channelMask.masks[i]); ;
     }
     break;
   case 1:

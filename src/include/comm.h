@@ -158,9 +158,6 @@ struct ncclPointerList {
   void *ptr;
 };
 
-struct channelMasks {
-	uint64_t masks[4];
-};
 struct ncclKernelPlan {
   // A kernel plan is also a callback that reclaims itself. Hence this must
   // be the first member.
