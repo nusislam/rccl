@@ -27,7 +27,7 @@ struct ncclKernelMatch {
   bool specialized;
 };
 
-typedef void(*ncclKern_t)(struct ncclDevComm* comm, uint64_t channelMask, struct ncclWork* workHead);
+typedef void(*ncclKern_t)(struct ncclDevComm* comm, struct channelMasks channelMask, struct ncclWork* workHead);
 
 // Must be consistent with the ncclFuncSet enum
 #ifdef ENABLE_COLLTRACE
@@ -352,14 +352,17 @@ static ncclResult_t addP2pToPlan(
 static void finishPlan(struct ncclKernelPlan* plan) {
   int channelUbound = 0;
   int channelCount = 0;
-  uint64_t channelMask = 0;
+  struct channelMasks channelMask;
+  for (int i =0; i < 4; i++) {
+	channelMask.masks[i] = 0;
+  }
   bool hasProxyOps = false;
   for (int c=0; c < MAXCHANNELS; c++) {
     struct ncclWorkList* tail = ncclIntruQueueTail(&plan->channels[c].workQueue);
     if (tail != nullptr) {
       channelUbound = c+1;
       channelCount += 1;
-      channelMask |= 1ull<<c;
+      channelMask.masks[c/64] |= 1ull<<(c%64);
       tail->work.header.isLast = 1;
       finishWork(&tail->work, plan->comm->WarpSize);
     }
@@ -1525,20 +1528,20 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo const* inf
           NCCLCHECK(ncclChannelComputeFromBase(comm, channelBaseId, c, &channelId));
           if (isSendNotRecv) {
             if (comm->channels[channelId].peers[peer]->send[1].connected == 0) { // P2P uses only 1 connector
-              comm->connectSend[peer] |= (1UL<<channelId);
+              comm->connectSend[peer].masks[channelId/64] |= (1UL<<(channelId%64));
               ncclGroupCommPreconnect(comm);
             }
             if (comm->p2pNet && comm->channels[channelId].peers[peer]->send[NCCL_CONN_IDX_P2P_NET].connected == 0) {
-              comm->connectSend[peer+comm->nRanks*NCCL_CONN_IDX_P2P_NET] |= (1UL<<channelId);
+              comm->connectSend[peer+comm->nRanks*NCCL_CONN_IDX_P2P_NET].masks[channelId/64] |= (1UL<<(channelId%64));
               ncclGroupCommPreconnect(comm);
             }
           } else {
             if (comm->channels[channelId].peers[peer]->recv[1].connected == 0) { // P2P uses only 1 connector
-              comm->connectRecv[peer] |= (1UL<<channelId);
+              comm->connectRecv[peer].masks[channelId/64] |= (1UL<<(channelId%64));
               ncclGroupCommPreconnect(comm);
             }
             if (comm->p2pNet && comm->channels[channelId].peers[peer]->recv[NCCL_CONN_IDX_P2P_NET].connected == 0) {
-              comm->connectRecv[peer+comm->nRanks*NCCL_CONN_IDX_P2P_NET] |= (1UL<<channelId);
+              comm->connectRecv[peer+comm->nRanks*NCCL_CONN_IDX_P2P_NET].masks[channelId/64] |= (1UL<<(channelId%64));
               ncclGroupCommPreconnect(comm);
             }
           }
