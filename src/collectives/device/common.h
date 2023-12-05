@@ -476,7 +476,8 @@ __forceinline__ __device__ void ncclKernel(
 
   switch (tid/WARP_SIZE) {
   case 0:
-    for (int i = 0; i < num; i++) {	  
+	  ncclShmem.channelId = blockIdx.x;
+    /*for (int i = 0; i < num; i++) {	  
     	if (channelMask.masks[i] & (1ull<<x)) {
       		y = __popcll(channelMask.masks[i] & ((1ull<<x)-1));
       		y= total + y;
@@ -491,7 +492,7 @@ __forceinline__ __device__ void ncclKernel(
       		}
     	}
 	total = __popcll(channelMask.masks[i]); ;
-    }
+    }*/
     break;
   case 1:
     if (tid < WARP_SIZE + NCCL_MAX_GROUPS)
