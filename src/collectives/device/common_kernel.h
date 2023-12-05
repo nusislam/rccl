@@ -220,10 +220,14 @@ __device__ __forceinline__ void reduceCopy(
         (nThreads, thread, redArg, preOpArgs, postOp,
          nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);
 #else
-      reduceCopyPacks<RedFn, T, Unroll*((MinSrcs == 1 && MinDsts == 1) ? 2 : 1), BigPackSize,
+      /*reduceCopyPacks<RedFn, T, Unroll*((MinSrcs == 1 && MinDsts == 1) ? 2 : 1), BigPackSize,
         MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
-        (nThreads, /*&*/thread, redArg, preOpArgs, postOp,
-         nSrcs, srcPtrs, nDsts, dstPtrs, /*&*/nBytesBehind, /*&*/nBytesAhead);
+        (nThreads, thread, redArg, preOpArgs, postOp,
+         nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);*/
+      reduceCopyPacks<RedFn, T, Unroll, BigPackSize,
+        MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
+        (nThreads, thread, redArg, preOpArgs, postOp,
+         nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);
 #endif
       if (nBytesAhead == 0) return;
 
@@ -236,22 +240,32 @@ __device__ __forceinline__ void reduceCopy(
   }
 
 #if defined(__gfx90a__)
-  if (MinSrcs > 1) {
+  /*if (MinSrcs > 1) {
     reduceCopyPacks<RedFn, T, Unroll/2*(16/sizeof(T))/2, sizeof(T),
     MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
     (nThreads, thread, redArg, preOpArgs, postOp,
      nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);
   } else {
-    reduceCopyPacks<RedFn, T, Unroll*(16/sizeof(T))/2, /*BytePerPack=*/sizeof(T),
+    reduceCopyPacks<RedFn, T, Unroll*(16/sizeof(T))/2, sizeof(T),
+    MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
+    (nThreads, thread, redArg, preOpArgs, postOp,
+     nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);
+  }*/
+   reduceCopyPacks<RedFn, T, Unroll, /*BytePerPack=*/sizeof(T),
     MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
     (nThreads, /*&*/thread, redArg, preOpArgs, postOp,
      nSrcs, srcPtrs, nDsts, dstPtrs, /*&*/nBytesBehind, /*&*/nBytesAhead);
-  }
 #else
-  reduceCopyPacks<RedFn, T, Unroll*(16/sizeof(T))/2, /*BytePerPack=*/sizeof(T),
+  /*reduceCopyPacks<RedFn, T, Unroll*(16/sizeof(T))/2, sizeof(T),
+    MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
+    (nThreads, thread, redArg, preOpArgs, postOp,
+     nSrcs, srcPtrs, nDsts, dstPtrs, nBytesBehind, nBytesAhead);*/
+
+   reduceCopyPacks<RedFn, T, Unroll, /*BytePerPack=*/sizeof(T),
     MultimemSrcs, MinSrcs, MaxSrcs, MultimemDsts, MinDsts, MaxDsts, PreOpSrcs>
     (nThreads, /*&*/thread, redArg, preOpArgs, postOp,
      nSrcs, srcPtrs, nDsts, dstPtrs, /*&*/nBytesBehind, /*&*/nBytesAhead);
+
 #endif
   if (nBytesAhead == 0) return;
 
