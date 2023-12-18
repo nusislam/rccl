@@ -533,7 +533,13 @@ static ncclResult_t scheduleCollTasksToPlan(
           comm->intraHighestTransportType == TRANSPORT_P2P && // only when all ranks can p2p each other
           comm->intraRanks < comm->localRanks) { // only with inter-process & intra-node peers
         NCCLCHECK(registerIntraNodeBuffers(comm, plan, &info, &regBufUsed, regBufSend, regBufRecv));
+      } else if (info.coll == ncclFuncAllGather && comm->intraHighestTransportType == TRANSPORT_P2P 
+		      && comm->intraRanks < comm->localRanks) {
+	//printf("Doing buffer registration\n");      
+	NCCLCHECK(registerIntraNodeBuffers(comm, plan, &info, &regBufUsed, regBufSend, regBufRecv));
+	
       }
+
 
       int maxChannels = info.algorithm == NCCL_ALGO_NVLS || aggInfo.algorithm == NCCL_ALGO_NVLS_TREE ? comm->nvlsChannels : comm->nChannels;
       NCCLCHECK(addCollToPlan(comm, plan, nWorkBudget, workFuncIndex, &workElem, &proxyOp,
