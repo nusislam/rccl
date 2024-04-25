@@ -179,6 +179,7 @@ void NCCL_NO_OPTIMIZE commPoison(ncclComm_t comm) {
 }
 
 RCCL_PARAM(KernelCollTraceEnable, "KERNEL_COLL_TRACE_ENABLE", 0);
+RCCL_PARAM(EnableMscclpp, "ENABLE_MSCCLPP", 0);
 
 #ifdef ENABLE_COLLTRACE
 // Should be in sync with 'ALL_COLLS' in Generator.cmake
@@ -2163,7 +2164,13 @@ ncclResult_t ncclCommInitRank(ncclComm_t* newcomm, int nranks, ncclUniqueId comm
   NvtxParamsCommInitRank payload{myrank, nranks, cudaDev};
   NVTX3_FUNC_WITH_PARAMS(CommInitRank, CommInitRankSchema, payload)
 
+
   NCCLCHECK(ncclCommInitRankDev(newcomm, nranks, commId, myrank, cudaDev, &config));
+  if (rcclParamEnableMscclpp()) {
+	printf("MSCCLPP enable\n");
+	//call mscclppCommInitRank();
+	(*newcomm)->mscclppCompatible = 1;
+  }
   return ncclSuccess;
 }
 
