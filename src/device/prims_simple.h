@@ -115,14 +115,13 @@ private:
     if (((flags & (Recv*RoleWaitRecv)) && !noRecvWait) ||
         ((flags & (Send*RoleWaitSend)) && !noSendWait)) {
       int spins = 0;
-      while (connStepCache + (isSendNotRecv ? NCCL_STEPS : 0) < step + StepPerSlice) {
+      /*while (connStepCache + (isSendNotRecv ? NCCL_STEPS : 0) < step + StepPerSlice) {
         __builtin_amdgcn_s_sleep(1);
         connStepCache = loadStepValue(connStepPtr);
         if (checkAbort(spins)) break;
-        //if (spins == 0) printf("r=%d b=%d t=%d SPUN OUT got=%d want=%d\n", ncclShmem.comm.rank, blockIdx.x, threadIdx.x, int(connStepCache + (isSendNotRecv ? NCCL_STEPS : 0)), int(step+StepPerSlice));
         if (spins == 0) traceData(__LINE__, threadIdx.x, int(connStepCache + (isSendNotRecv ? NCCL_STEPS : 0)), int(step+StepPerSlice));
       }
-      __asm__ __volatile__("s_wakeup");
+      __asm__ __volatile__("s_wakeup");*/
     }
 
     if (flags & (Recv*RoleWaitRecv | Send*RoleWaitSend)) {
@@ -164,12 +163,12 @@ private:
 
   template<int Recv, int Send>
   inline __device__ void postPeer(bool dataStored) {
-    if (Send && (flags & RolePostSend) && dataStored)
+/*    if (Send && (flags & RolePostSend) && dataStored)
 #ifdef __GFX9__
     __threadfence();
 #else
     __threadfence_system();
-#endif
+#endif*/
 
     if ((flags & Send*RolePostSend) && next_hdp_reg)
       STORE((unsigned int *)next_hdp_reg, 0x1);
