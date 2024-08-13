@@ -101,9 +101,13 @@ bool operator ==(const ncclUniqueId& a, const ncclUniqueId& b) {
   return memcmp(a.internal, b.internal, NCCL_UNIQUE_ID_BYTES) == 0;
 }
 
-RCCL_PARAM(EnableMscclpp, "ENABLE_MSCCLPP", 0);
 RCCL_PARAM(MscclppThreshold, "MSCCLPP_THRESHOLD", (size_t)(1024*1024));
+static constexpr int64_t defaultEnableMscclpp = 1;
+#else
+static constexpr int64_t defaultEnableMscclpp = 0;
 #endif
+
+RCCL_PARAM(EnableMscclpp, "ENABLE_MSCCLPP", defaultEnableMscclpp);
 
 // GDRCOPY support: Off by default
 NCCL_PARAM(GdrCopyEnable, "GDRCOPY_ENABLE", 0);
@@ -185,8 +189,8 @@ ncclResult_t ncclGetUniqueId(ncclUniqueId* out) {
   NCCLCHECK(PtrCheck(out, "GetUniqueId", "out"));
   ncclResult_t res = bootstrapGetUniqueId((struct ncclBootstrapHandle*)out);
   TRACE_CALL("ncclGetUniqueId(0x%llx)", (unsigned long long)hashUniqueId(*out));
-#ifdef ENABLE_MSCCLPP
   if (rcclParamEnableMscclpp()) {
+#ifdef ENABLE_MSCCLPP
     NCCLCHECK(res);
     int dev;
     CUDACHECK(cudaGetDevice(&dev));
@@ -198,8 +202,10 @@ ncclResult_t ncclGetUniqueId(ncclUniqueId* out) {
     } else {
       WARN("MSCCL++: Cannot enable MSCCL++ on %s architecture", devProp.gcnArchName);
     }
-  }
+#else
+    WARN("MSCCL++: Feature not enabled. ENABLE_MSCCLPP must be defined at compile-time to enable this feature.");
 #endif
+  }
   return res;
 }
 
@@ -1961,8 +1967,8 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
 
   NCCLCHECKGOTO(initTransportsRank(comm, job->parent), res, fail);
 
-#ifdef ENABLE_MSCCLPP
   if (rcclParamEnableMscclpp() && !job->parent) {
+#ifdef ENABLE_MSCCLPP
     hipDeviceProp_t devProp;
     CUDACHECK(hipGetDeviceProperties(&devProp, cudaDev));
     comm->mscclppCompatible = IsArchMatch(devProp.gcnArchName, "gfx94");
@@ -1976,8 +1982,10 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     } else {
       WARN("MSCCL++: Cannot enable MSCCL++ on %s architecture", devProp.gcnArchName);
     }
-  }
+#else
+    WARN("MSCCL++: Feature not enabled. ENABLE_MSCCLPP must be defined at compile-time to enable this feature.");
 #endif
+  }
 
   NCCLCHECKGOTO(ncclLoadTunerPlugin(&comm->tuner), res, fail);
   if (comm->tuner) {
