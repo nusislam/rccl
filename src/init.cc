@@ -1967,7 +1967,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   NCCLCHECKGOTO(initTransportsRank(comm, job->parent), res, fail);
 
 #ifdef ENABLE_MSCCLPP
-  if (rcclParamEnableMscclpp()) {
+  if (rcclParamEnableMscclpp() && !job->parent) {
     hipDeviceProp_t devProp;
     CUDACHECK(hipGetDeviceProperties(&devProp, cudaDev));
     comm->mscclppCompatible = IsArchMatch(devProp.gcnArchName, "gfx94");
