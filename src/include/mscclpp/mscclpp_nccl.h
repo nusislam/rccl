@@ -12,17 +12,15 @@
 
 typedef struct mscclpp_ncclComm* mscclpp_ncclComm_t;
 
-typedef struct { char internal[NCCL_UNIQUE_ID_BYTES]; } mscclpp_ncclUniqueId;
-
-/* A ncclUniqueId and a mscclpp_ncclUniqueId will always be created together and used alternatively. This maps between them. */
-extern std::unordered_map<ncclUniqueId, mscclpp_ncclUniqueId> mscclpp_uniqueIdMap;
+/* A RCCL ncclUniqueId and an MSCCL++ ncclUniqueId will always be created together and used alternatively. This maps between them. */
+extern std::unordered_map<ncclUniqueId, ncclUniqueId> mscclpp_uniqueIdMap;
 
 extern "C" {
   /* See ncclGetUniqueId. */
-  ncclResult_t  mscclpp_ncclGetUniqueId(mscclpp_ncclUniqueId* uniqueId);
+  ncclResult_t  mscclpp_ncclGetUniqueId(ncclUniqueId* uniqueId);
 
   /* See ncclCommInitRank. */
-  ncclResult_t  mscclpp_ncclCommInitRank(mscclpp_ncclComm_t* comm, int nranks, mscclpp_ncclUniqueId commId, int rank);
+  ncclResult_t  mscclpp_ncclCommInitRank(mscclpp_ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank);
 
   /* See ncclCommDestroy. */
   ncclResult_t  mscclpp_ncclCommDestroy(mscclpp_ncclComm_t comm);

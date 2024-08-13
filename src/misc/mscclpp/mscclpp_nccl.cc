@@ -6,4 +6,4 @@
 
 #include "mscclpp/mscclpp_nccl.h"
 
-std::unordered_map<ncclUniqueId, mscclpp_ncclUniqueId> mscclpp_uniqueIdMap;
+std::unordered_map<ncclUniqueId, ncclUniqueId> mscclpp_uniqueIdMap;

@@ -197,8 +197,9 @@ ncclResult_t ncclGetUniqueId(ncclUniqueId* out) {
     hipDeviceProp_t devProp;
     CUDACHECK(hipGetDeviceProperties(&devProp, dev));
     if (IsArchMatch(devProp.gcnArchName, "gfx94")) {
-      res = mscclpp_ncclGetUniqueId(&(mscclpp_uniqueIdMap[*out]));
-      TRACE_CALL("mscclpp_ncclGetUniqueId");
+      ncclUniqueId& mscclppUniqueId = mscclpp_uniqueIdMap[*out];
+      res = mscclpp_ncclGetUniqueId(&mscclppUniqueId);
+      TRACE_CALL("mscclpp_ncclGetUniqueId(0x%llx)", (unsigned long long)hashUniqueId(mscclppUniqueId));
     } else {
       WARN("MSCCL++: Cannot enable MSCCL++ on %s architecture", devProp.gcnArchName);
     }
@@ -1973,12 +1974,14 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     CUDACHECK(hipGetDeviceProperties(&devProp, cudaDev));
     comm->mscclppCompatible = IsArchMatch(devProp.gcnArchName, "gfx94");
     if (comm->mscclppCompatible) {
-      NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &(mscclpp_uniqueIdMap[job->commId]), sizeof(mscclpp_ncclUniqueId)), res, fail);
-      TRACE_CALL("bootstrapIntraNodeBroadcast(rank=%d, nranks=%d, root=%d, bcastData=<mscclpp_ncclUniqueId>)", comm->localRank, comm->localRanks, 0);
+      ncclUniqueId& mscclppUniqueId = mscclpp_uniqueIdMap[job->commId];
+      NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &mscclppUniqueId, sizeof(mscclppUniqueId)), res, fail);
+      unsigned long long mscclppUniqueIdHash; (void)mscclppUniqueIdHash;
+      TRACE_CALL("bootstrapIntraNodeBroadcast(rank=%d, nranks=%d, root=%d, bcastData=hash:0x%llx)", comm->localRank, comm->localRanks, 0, (mscclppUniqueIdHash = (unsigned long long)hashUniqueId(mscclppUniqueId)));
       comm->mscclpp_threshold = rcclParamMscclppThreshold();
       INFO(NCCL_INIT, "MSCCL++: Enabled! Msg size threshold=%zu", comm->mscclpp_threshold);
-      NCCLCHECKGOTO(mscclpp_ncclCommInitRank(&(comm->mscclpp_comm), job->nranks, mscclpp_uniqueIdMap[job->commId], job->myrank), res, fail);
-      TRACE_CALL("mscclpp_ncclCommInitRank (nranks=%d, myrank=%d)", job->nranks, job->myrank);
+      NCCLCHECKGOTO(mscclpp_ncclCommInitRank(&(comm->mscclpp_comm), job->nranks, mscclppUniqueId, job->myrank), res, fail);
+      TRACE_CALL("mscclpp_ncclCommInitRank (comm=%p, nranks=%d, commId=hash:0x%llx, myrank=%d)", &(comm->mscclpp_comm), job->nranks, mscclppUniqueIdHash, job->myrank);
     } else {
       WARN("MSCCL++: Cannot enable MSCCL++ on %s architecture", devProp.gcnArchName);
     }
