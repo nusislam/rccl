@@ -65,8 +65,8 @@ if(ENABLE_MSCCLPP)
         mscclpp_cmake_arg(HIP_COMPILER)
     
         download_project(PROJ                mscclpp_nccl
-                         GIT_REPOSITORY      https://github.com/microsoft/mscclpp.git
-                         GIT_TAG             ead4efc315b24610104472cc94b240694e1f7711
+                         GIT_REPOSITORY      https://github.com/nusislam/mscclpp.git
+                         GIT_TAG             cpx-allred
                          INSTALL_DIR         ${MSCCLPP_ROOT}
                          CMAKE_ARGS          -DGPU_TARGETS=gfx942 -DBYPASS_GPU_CHECK=ON -DUSE_ROCM=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_APPS_NCCL=ON -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> "${CMAKE_PREFIX_PATH_ARG}" "${CMAKE_SHARED_LINKER_FLAGS_INIT_ARG}" "${CMAKE_EXE_LINKER_FLAGS_INIT_ARG}" -DCMAKE_VERBOSE_MAKEFILE=1 "${CMAKE_INSTALL_RPATH_USE_LINK_PATH_ARG}" "${HIP_COMPILER_ARG}"
                          LOG_DOWNLOAD        FALSE
