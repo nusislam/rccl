@@ -52,7 +52,8 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
   NvtxParamsAllReduce payload{count * ncclTypeSize(datatype), op};
   NVTX3_FUNC_WITH_PARAMS(AllReduce, AllReduceSchema, payload)
 
-  if (mscclAvailable(comm->rank) && !mscclIsCaller()) {
+  if ((mscclAvailable(comm->rank) && !mscclIsCaller()) || (comm->mscclppCompatible && comm->nRanks <=8 && comm->topo->nodes[GPU].nodes[0].gpu.cu == 80 || comm->topo->nodes[GPU].nodes[0].gpu.cu == 20)) {
+	  //printf("Going to msccl\n");
     return mscclEnqueueCheck(
       sendbuff, nullptr, nullptr, recvbuff, nullptr, nullptr,
       count, datatype, 0, 0, op, mscclFuncAllReduce, comm, stream);

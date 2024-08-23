@@ -1969,11 +1969,13 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   NCCLCHECKGOTO(initTransportsRank(comm, job->parent), res, fail);
 
   if (rcclParamEnableMscclpp() && !job->parent) {
+	  //printf("Param enabled\n");
 #ifdef ENABLE_MSCCLPP
     hipDeviceProp_t devProp;
     CUDACHECK(hipGetDeviceProperties(&devProp, cudaDev));
     comm->mscclppCompatible = IsArchMatch(devProp.gcnArchName, "gfx94");
     if (comm->mscclppCompatible) {
+	  //printf("MSCCLPP enabled\n");
       ncclUniqueId& mscclppUniqueId = mscclpp_uniqueIdMap[job->commId];
       NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &mscclppUniqueId, sizeof(mscclppUniqueId)), res, fail);
       unsigned long long mscclppUniqueIdHash; (void)mscclppUniqueIdHash;
