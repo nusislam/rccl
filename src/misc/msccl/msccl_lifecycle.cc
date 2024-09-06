@@ -487,22 +487,26 @@ ncclResult_t mscclEnqueueCheck(
     &threadLocalStatus.savedSchedulerParams.back()));
 
   size_t nBytes = count * ncclTypeSize(dataType);
+  
+  if (comm->mscclppCompatible && comm->nRanks == 4 && comm->topo->nodes[GPU].nodes[0].gpu.cu == 20) {
+	comm->mscclpp_threshold = 17179869184;
+	if (nBytes < 32)
+		nBytes = 32;
+  }
 
   switch (threadLocalStatus.groupStatus) {
     case mscclNoGroup:
 #ifdef ENABLE_MSCCLPP
       if (comm->mscclppCompatible) {
-	    printf("No group %d\n", nBytes);
-
+	
         if (threadLocalStatus.captureStatus == mscclUnknownCaptureStatus) {
           INFO(NCCL_COLL, "MSCCL++: reading capture status");
           NCCLCHECK(mscclGetCaptureStatus(comm->rank, stream));
         }
 
         /* check if one rank per GPU and graph mode is enabled */
-        //if ((threadLocalStatus.captureStatus != mscclNoCapture) && comm->mscclCompatible && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
-        if ((threadLocalStatus.captureStatus != mscclNoCapture) && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
-	  //printf("I am here\n");
+        if ((threadLocalStatus.captureStatus != mscclNoCapture) && (comm->mscclCompatible || (comm->mscclppCompatible && comm->nRanks == 4 && comm->topo->nodes[GPU].nodes[0].gpu.cu == 20)) && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
+        //if ((threadLocalStatus.captureStatus != mscclNoCapture) && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
           bool isManagedBuffer = false;
           CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(sendBuff)));
           if (!isManagedBuffer) CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(recvBuff)));
@@ -537,7 +541,6 @@ ncclResult_t mscclEnqueueCheck(
     case mscclGroupSupportedOp:
 #ifdef ENABLE_MSCCLPP
       if (comm->mscclppCompatible) {
-	    printf("group %d\n", nBytes);
 
         if (threadLocalStatus.captureStatus == mscclUnknownCaptureStatus) {
           INFO(NCCL_COLL, "MSCCL++: reading capture status");
@@ -545,14 +548,13 @@ ncclResult_t mscclEnqueueCheck(
         }
 
         /* check if one rank per GPU and graph mode is enabled */
-        if ((threadLocalStatus.captureStatus != mscclNoCapture) && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
+        if ((threadLocalStatus.captureStatus != mscclNoCapture) && (comm->mscclCompatible || (comm->mscclppCompatible && comm->nRanks == 4 && comm->topo->nodes[GPU].nodes[0].gpu.cu == 20)) && isMscclppSupportedType(dataType) && nBytes > 0 && (nBytes & 31) == 0) {
           bool isManagedBuffer = false;
           CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(sendBuff)));
           if (!isManagedBuffer) CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(recvBuff)));
 
           if (isManagedBuffer) { /* MSCCL++ not enabled for managed memory buffers */ }
           else if (func == mscclFuncAllReduce && nBytes <= comm->mscclpp_threshold && op == ncclSum) {
-		printf("I am here\n");
             INFO(NCCL_COLL,"%s: opCount %lx sendbuff %p recvbuff %p count %zi datatype %d op %d root %d comm %p [nranks=%d] stream %p",
               "mscclpp_ncclAllReduce", comm->opCount, sendBuff, recvBuff, count, dataType, op, root, comm, comm->nRanks, stream);
             NCCLCHECK(mscclpp_ncclAllReduce(sendBuff, recvBuff, count, dataType, op, comm->mscclpp_comm, stream));
