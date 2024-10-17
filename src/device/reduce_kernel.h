@@ -179,6 +179,36 @@ struct Apply_Reduce<FuncMinMax<T>, /*EltPerPack=*/1> {
   }
 };
 
+// Clipped reduction for half precision
+template<>
+struct Apply_Reduce<FuncSum<half>, /*EltPerPack=*/1> {
+  __device__ static BytePack<2> reduce(FuncSum<half> fn, BytePack<2> a, BytePack<2> b) {
+    union BitCastHalf {
+        unsigned short u;
+        half f;
+    };
+    half x = fromPack<half>(a) + fromPack<half>(b);
+    x = __hmax(x, BitCastHalf{0xfbff}.f);
+    x = __hmin(x, BitCastHalf{0x7bff}.f);
+    return toPack<half>(x);
+  }
+};
+template<>
+struct Apply_Reduce<FuncSum<half>, /*EltPerPack=*/2> {
+  __device__ static BytePack<4> reduce(FuncSum<half> fn, BytePack<4> a, BytePack<4> b) {
+    union BitCastHalf {
+        unsigned short u;
+        half f;
+    };
+    half2 x = fromPack<half2>(a) + fromPack<half2>(b);
+    x.x = __hmax(x.x, BitCastHalf{0xfbff}.f);
+    x.x = __hmin(x.x, BitCastHalf{0x7bff}.f);
+    x.y = __hmax(x.y, BitCastHalf{0xfbff}.f);
+    x.y = __hmin(x.y, BitCastHalf{0x7bff}.f);
+    return toPack<half2>(x);
+  }
+};
+
 // Optimizations for specfic types and element count combinations:
 template<>
 struct Apply_Reduce<FuncSum<uint8_t>, /*EltPerPack=*/4> {
