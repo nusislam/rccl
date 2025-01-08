@@ -66,16 +66,20 @@ bool mscclAvailable(int rank) {
 static bool allProcessHostsUnique(ncclComm_t comm) {
   std::map<uint64_t, std::set<uint64_t>> hostHashToPidHashes;
   for (int i = 0; i < comm->nRanks; i++) {
+    
     uint64_t hostHash = comm->peerInfo[i].hostHash;
     uint64_t pidHash = comm->peerInfo[i].pidHash;
+    INFO(NCCL_INIT, "comm->nrank:%i/%i hostHash %lu pidHash %lu", i, comm->nRanks-1, hostHash, pidHash);
     if (hostHashToPidHashes.find(hostHash) != hostHashToPidHashes.end()) {
       auto& pidHashSet = hostHashToPidHashes[hostHash];
       if (pidHashSet.find(pidHash) != pidHashSet.end()) {
+        INFO(NCCL_INIT, "allProcessHosts NOT Unique\n");
         return false;
       }
     }
     hostHashToPidHashes[hostHash].insert(pidHash);
   }
+  INFO(NCCL_INIT, "allProcessHostsUnique\n");
   return true;
 }
 
@@ -434,6 +438,7 @@ static ncclResult_t mscclFallBackSavedParams() {
           param.p.root, param.comm, param.stream));
         break;
       case mscclFuncAllReduce:
+        INFO(NCCL_COLL, "MSCCL++ FallBack ncclAllReduce");
         NCCLCHECK(ncclAllReduce(param.p.sendBuff, param.p.recvBuff, param.p.count, param.p.dataType,
           param.p.op, param.comm, param.stream));
         break;
@@ -518,6 +523,7 @@ ncclResult_t mscclEnqueueCheck(
   switch (threadLocalStatus.groupStatus) {
     case mscclNoGroup:
 #ifdef ENABLE_MSCCLPP
+      INFO(NCCL_COLL, "mscclNoGroup");
       if (comm->mscclppCompatible) {
         if (threadLocalStatus.captureStatus == mscclUnknownCaptureStatus) {
           INFO(NCCL_COLL, "MSCCL++: reading capture status");
@@ -530,14 +536,35 @@ ncclResult_t mscclEnqueueCheck(
         mscclpp_ncclBuffIsRegistered(comm->mscclpp_comm, sendBuff, count, &recvBuffRegistered);
         const bool graphMode = threadLocalStatus.captureStatus != mscclNoCapture;
         const bool buffsRegistedNonGraphMode = !graphMode && sendBuffRegistered && recvBuffRegistered;
-
+        
+        if(graphMode )
+          INFO(NCCL_COLL, "graphMode");
+        else{
+          printf("Not graph mode\n");
+          INFO(NCCL_COLL, "NOT GRAPHMODE");
+        }
+        if(sendBuffRegistered)
+          INFO(NCCL_COLL, "sendBuffRegistered");
+        else
+          INFO(NCCL_COLL, "sendBuff NOT Registered");
+        if(recvBuffRegistered)
+          INFO(NCCL_COLL, "recvBuffRegistered");
+        else
+          INFO(NCCL_COLL, "recvBuff NOPT Registered");
+        if(isMscclppAllReduceSupported(dataType, op))
+          INFO(NCCL_COLL, "isMscclppAllReduceSupported");
+        else
+          INFO(NCCL_COLL, " unsupported MscclppAll OP");
         /* check if one rank per GPU and graph mode is enabled */
         if ((graphMode || buffsRegistedNonGraphMode) && comm->mscclCompatible && nBytes > 0 && (nBytes & 31) == 0) {
+          INFO(NCCL_COLL, "Comm and buffer size is compatible with MSCCL++");
           bool isManagedBuffer = false;
           if (sendBuff) CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(sendBuff)));
           if (!isManagedBuffer && recvBuff) CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(recvBuff)));
 
-          if (isManagedBuffer) { /* MSCCL++ not enabled for managed memory buffers */ }
+          if (isManagedBuffer) { /* MSCCL++ not enabled for managed memory buffers */ 
+              INFO(NCCL_COLL, "Managed buffer not supporterd with MSCCL++");
+          }
           else if (func == mscclFuncAllReduce && nBytes <= comm->mscclpp_threshold && isMscclppAllReduceSupported(dataType, op)) {
             INFO(NCCL_COLL,"%s: opCount %lx sendbuff %p recvbuff %p count %zi datatype %d op %d root %d comm %p [nranks=%d] stream %p",
               "mscclpp_ncclAllReduce", comm->opCount, sendBuff, recvBuff, count, dataType, op, root, comm, comm->nRanks, stream);
@@ -566,6 +593,7 @@ ncclResult_t mscclEnqueueCheck(
       break;
     case mscclGroupSupportedOp:
 #ifdef ENABLE_MSCCLPP
+      INFO(NCCL_COLL, "mscclGroupSupportedOp");
       if (comm->mscclppCompatible) {
         if (threadLocalStatus.captureStatus == mscclUnknownCaptureStatus) {
           INFO(NCCL_COLL, "MSCCL++: reading capture status");

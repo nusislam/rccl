@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 2.8.12)
 
 if(BUILD_TESTS)
 
+
   option(OPENMP_TESTS_ENABLED "Enable OpenMP for unit tests" OFF)
   
   message("Building rccl unit tests (Installed in /test/rccl-UnitTests)")
@@ -61,7 +62,11 @@ if(BUILD_TESTS)
   target_include_directories(rccl-UnitTests PRIVATE ${ROCM_PATH} ${GTEST_INCLUDE_DIRS})
   target_include_directories(rccl-UnitTests PRIVATE ${PROJECT_BINARY_DIR}/include)            # for generated rccl.h header
   target_include_directories(rccl-UnitTests PRIVATE ${PROJECT_BINARY_DIR}/hipify/src/include) # for rccl_bfloat16.h
-
+  
+  if (ENABLE_MSCCLPP)
+    message("MSCCLL++ ENABLED FOR UNIT TESTS in CMAKELISTS.txt")
+    target_compile_definitions(rccl-UnitTests PRIVATE ENABLE_MSCCLPP)
+  endif()
   ## Set rccl-UnitTests compile definitions
   if(LL128_ENABLED)
     target_compile_definitions(rccl-UnitTests PRIVATE ENABLE_LL128)

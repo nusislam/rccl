@@ -200,7 +200,9 @@ ncclResult_t ncclGetUniqueId_impl(ncclUniqueId* out) {
   NCCLCHECK(ncclInit());
   NCCLCHECK(PtrCheck(out, "GetUniqueId", "out"));
   ncclResult_t res = bootstrapGetUniqueId((struct ncclBootstrapHandle*)out);
+  INFO(NCCL_INIT, "ncclGetUniqueId_impl");
   TRACE_CALL("ncclGetUniqueId(0x%llx)", (unsigned long long)hashUniqueId(*out));
+  INFO(NCCL_INIT, "generated ncclGetUniqueId_impl");
   return res;
 }
 
@@ -1202,6 +1204,7 @@ static ncclResult_t initTransportsRank(struct ncclComm* comm, struct ncclComm* p
   // We use 2 AllGathers
   // 1. { peerInfo, comm, compCap}
   // 2. { nChannels, graphInfo, topoRanks }
+  printf("initTransportsRank\n");
   ncclResult_t ret = ncclSuccess;
   int rank = comm->rank;
   int nranks = comm->nRanks;
@@ -1965,6 +1968,7 @@ fail:
 }
 
 static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
+  printf("HERE ncclCommInitRankFunc\n");
   struct ncclCommInitRankAsyncJob* job = (struct ncclCommInitRankAsyncJob*)job_;
   ncclComm_t comm = job->comm;
 #ifdef ENABLE_MSCCLPP
@@ -2019,17 +2023,21 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   comm->commHash = getHash(job->commId.internal, NCCL_UNIQUE_ID_BYTES);
 
   if (job->parent) {
+    printf("job-parent\n");
     INFO(NCCL_INIT,"ncclCommSplit comm %p rank %d nranks %d cudaDev %d nvmlDev %d busId %lx parent %p color %d key %d commId 0x%llx - Init START",
     comm, comm->rank, comm->nRanks, comm->cudaDev, comm->nvmlDev, comm->busId, job->parent, job->color, job->key, (unsigned long long)hashUniqueId(job->commId));
   } else {
-    INFO(NCCL_INIT,"ncclCommInitRank comm %p rank %d nranks %d cudaDev %d nvmlDev %d busId %lx commId 0x%llx - Init START",
+    printf("non-parent\n");
+    INFO(NCCL_INIT,"ncclCommInitRank comm %p rank %d nranks %d cudaDev %d nvmlDev %d busId %lx commId %llx - Init START",
     comm, comm->rank, comm->nRanks, comm->cudaDev, comm->nvmlDev, comm->busId, (unsigned long long)hashUniqueId(job->commId));
+    INFO(NCCL_INIT, "generated hashUniqueId");
   }
 
   NCCLCHECKGOTO(initTransportsRank(comm, job->parent), res, fail);
-
+  printf("initTransportsRank\n");
 #ifdef ENABLE_MSCCLPP
   if (job->parent) {
+    INFO(NCCL_INIT, "MSCCL++ job->parent");
     if (job->parent->mscclppCompatible) {
       INFO(NCCL_INIT, "MSCCL++: Splitting a compatible communicator; using parent mscclpp_comm");
       comm->mscclppCompatible = true;
@@ -2040,12 +2048,17 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
       mscclpp_uniqueIdReverseMap[mscclppUniqueId].insert(job->commId);
       ncclCommToUniqueIdMap[comm] = job->commId;
     }
+    else{
+      INFO(NCCL_INIT, "MSCCL++ job->parent not mscclppCompatible");
+    }
   }
   else
 #endif
   if (rcclParamMscclppEnabled()) {
 #ifdef ENABLE_MSCCLPP
+    INFO(NCCL_INIT, "rcclParamMscclppEnabled()");
     if (mscclEnabled() && (comm->topo->mscclEnabled || mscclForceEnabled()) && mscclppCommCompatible(comm)) {
+      INFO(NCCL_INIT, "mscclEnabled, topo->mscclEnabled or ForceEnabled, comm is mscclppCommCompatible");
       hipDeviceProp_t devProp;
       CUDACHECK(hipGetDeviceProperties(&devProp, cudaDev));
       comm->mscclppCompatible = IsArchMatch(devProp.gcnArchName, "gfx94");
@@ -2073,11 +2086,12 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
         WARN("MSCCL++: Cannot enable MSCCL++ on %s architecture", devProp.gcnArchName);
       }
     } else {
+      WARN("MSCCL++: Cannot enable MSCCL++; environment is not MSCCL Compatible");
       comm->mscclppCompatible = false;
-      WARN("MSCCL++: Cannot enable MSCCL++; environment is not MSCCL compatible");
     }
 #else
     WARN("MSCCL++: Feature not enabled. ENABLE_MSCCLPP must be defined at compile-time to enable this feature.");
+    
 #endif
   }
 

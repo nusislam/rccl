@@ -156,9 +156,17 @@ ncclResult_t ncclRegCleanup(struct ncclComm* comm) {
 
 NCCL_API(ncclResult_t, ncclCommRegister, const ncclComm_t comm, void* buff, size_t size, void** handle);
 ncclResult_t ncclCommRegister_impl(const ncclComm_t comm, void* buff, size_t size, void** handle) {
+  printf("inside ncclCommRegister\n");
   NCCLCHECK(CommCheck(comm, "ncclCommRegister", "comm"));
   if (comm->checkPointers) NCCLCHECK(CudaPtrCheck(buff, comm, "buff", "ncclCommRegister"));
   #ifdef ENABLE_MSCCLPP
+
+   // if(!comm->mscclCompatible)
+    //  INFO(NCCL_INIT, "cannot use mscclpp ncclCommRegister because comm->mscclCompatible is false");
+    //if(!(size > 0 && (size & 31) == 0))
+    //    INFO(NCCL_INIT, "cannot use mscclpp ncclCommRegister because improper buffer size, must be non-zero and multiple of 32 size:%lu", size);
+    //if(!(size <= comm->mscclpp_threshold))
+    //  INFO(NCCL_INIT, "cannot use mscclpp ncclCommRegister because buff size:%lu is larger than threshold %lu", size, comm->mscclpp_threshold);
     if (comm->mscclCompatible && size > 0 && (size & 31) == 0 && size <= comm->mscclpp_threshold){
       bool isManagedBuffer = false; 
       CUDACHECK(hipPointerGetAttribute(&isManagedBuffer, HIP_POINTER_ATTRIBUTE_IS_MANAGED, const_cast<void*>(buff)));

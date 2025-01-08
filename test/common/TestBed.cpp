@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "TestBed.hpp"
 #include <rccl/rccl.h>
+#include <iostream>
 
 #define PIPE_WRITE(childId, val)                                        \
   ASSERT_EQ(write(childList[childId]->parentWriteFd, &val, sizeof(val)), sizeof(val))
@@ -52,8 +53,10 @@ namespace RcclUnitTesting
     numActiveChildren(0),
     numActiveRanks(0)
   {
+    std::cout << "TestBed constructor" << std::endl;
     // Collect the number of GPUs
     this->numDevicesAvailable = ev.maxGpus;
+    printf("number of devices available:%i\n", ev.maxGpus);
     if (ev.verbose) INFO("Detected %d GPUs\n", this->numDevicesAvailable);
   }
 
@@ -95,6 +98,7 @@ namespace RcclUnitTesting
 
     // Create child-processes
     childList.resize(this->numActiveChildren);
+    printf("this->numActiveChildren:%i\n", this->numActiveChildren);
     for (int childId = 0; childId < this->numActiveChildren; ++childId)
     {
       childList[childId] = new TestBedChild(childId, ev.verbose, ev.printValues, ev.useMultithreading);
@@ -246,6 +250,7 @@ namespace RcclUnitTesting
                             int    const rank,
                             bool   const userRegistered)
   {
+    printf("Starting AllocateMem\n");
     InteractiveWait("Starting AllocateMem");
 
     // Build list of ranks this applies to (-1 for rank means to set for all)
@@ -274,6 +279,7 @@ namespace RcclUnitTesting
         PIPE_CHECK(childId);
       }
     }
+    printf("Finishing AllocateMem\n");
     InteractiveWait("Finishing AllocateMem");
   }
 
@@ -314,14 +320,16 @@ namespace RcclUnitTesting
   void TestBed::ExecuteCollectives(std::vector<int> const &currentRanks, int const groupId, 
                                    bool const useHipGraph)
   {
+    printf("Starting ExecuteCollectives numGroupCalls:%i ranks:%zu\n", this->numGroupCalls, currentRanks.size());
     InteractiveWait("Starting ExecuteCollectives");
-
+    
     int const cmd = TestBedChild::CHILD_EXECUTE_COLL;
     ++TestBed::NumTestsRun();
 
     std::vector<std::vector<int>> ranksPerChild(this->numActiveChildren);
     for (int rank = 0; rank < currentRanks.size(); ++rank)
     {
+      printf("rank:%i\n", rank);
       ranksPerChild[rankToChildMap[currentRanks[rank]]].push_back(rank);
     }
 
@@ -331,19 +339,24 @@ namespace RcclUnitTesting
       if (groupId == -1 || groupId == i) groupList.push_back(i);
 
     for (auto currGroup : groupList) {
+      std::cout << "currGroup:" << currGroup << std::endl;;
       // Send ExecuteColl command to each active child process
       for (int childId = 0; childId < this->numActiveChildren; ++childId)
       {
+        printf("child:%i\n", childId);
         if ((currentRanks.size() == 0) || (ranksPerChild[childId].size() > 0))
         {
           InteractiveWait("Starting ExecuteCollectives for child " + std::to_string(childId));
+          std::cout << "Start PIPE_WRITE childId:" << childId << std::endl;;
           PIPE_WRITE(childId, cmd);
           PIPE_WRITE(childId, ev.timeoutUs);
           PIPE_WRITE(childId, currGroup);
           PIPE_WRITE(childId, useHipGraph);
           int tempCurrentRanks = currentRanks.size();
           PIPE_WRITE(childId, tempCurrentRanks);
+          std::cout << "End PIPE_WRITE childId:" << childId << std::endl;;
           for (int rank = 0; rank < currentRanks.size(); ++rank){
+            std::cout << "last PIPE_WRITE rank:" << rank << std::endl;;
             PIPE_WRITE(childId, currentRanks[rank]);
           }
         }
@@ -356,6 +369,7 @@ namespace RcclUnitTesting
       if ((currentRanks.size() == 0) || (ranksPerChild[childId].size() > 0)) PIPE_CHECK(childId);
     }
 
+    printf("Done with collective\n");
     InteractiveWait("Finishing ExecuteCollectives");
   }
 
@@ -426,6 +440,7 @@ namespace RcclUnitTesting
 
   void TestBed::DeallocateMem(int const groupId, int const collId, int const rank)
   {
+    printf("DeallocateMem\n");
     InteractiveWait("Starting DeallocateMem");
 
     // Build list of ranks this applies to (-1 for rank means to set for all)
@@ -499,6 +514,7 @@ namespace RcclUnitTesting
 
   void TestBed::Finalize()
   {
+    
     if (this->numActiveChildren == 0)
       return;
 
@@ -508,8 +524,9 @@ namespace RcclUnitTesting
     int const cmd = TestBedChild::CHILD_STOP;
     for (int childId = 0; childId < this->numActiveChildren; ++childId)
     {
+      std::cout << "sending stop to child:" << childId << std::endl;
       PIPE_WRITE(childId, cmd);
-
+      std::cout << "stop sent to child:" << childId << std::endl;
       // Close pipes to child process
       close(childList[childId]->parentWriteFd);
       close(childList[childId]->parentReadFd);
@@ -532,6 +549,7 @@ namespace RcclUnitTesting
     this->numActiveChildren = 0;
     this->numActiveRanks = 0;
 
+    printf("TestBed Finalize end\n");
     InteractiveWait("Finishing Finalize");
   }
 
@@ -574,6 +592,7 @@ namespace RcclUnitTesting
                                                           int const ranksPerGpu,
                                                           const std::vector<int>& gpuPriorityOrder)
   {
+    printf("Getting device ID list\n");
     std::vector<std::vector<int>> result(numProcesses);
     int ntasks = numProcesses == 1 ? numGpus : 1;
     int k=0;
@@ -582,6 +601,7 @@ namespace RcclUnitTesting
         result[i].push_back(gpuPriorityOrder[k%numGpus]);
         k++;
       }
+    printf("returning device ID list\n");
     return result;
   }
 
@@ -622,7 +642,8 @@ namespace RcclUnitTesting
                                std::vector<bool>           const& inPlaceList,
                                std::vector<bool>           const& managedMemList,
                                std::vector<bool>           const& useHipGraphList,
-                               bool                        const& enableSweep)
+                               bool                        const& enableSweep,
+                               bool                        const& userRegistered)
   {
     // Sort numElements in descending order to cut down on # of allocations
     std::vector<int> sortedN = numElements;
@@ -663,6 +684,7 @@ namespace RcclUnitTesting
     // Sweep over the number of ranks
     for (int numGpus : ev.GetNumGpusList())
     for (int isMultiProcess : ev.GetIsMultiProcessList())
+    
     for (int ranksPerGpu=1; ranksPerGpu <= ev.maxRanksPerGpu && isCorrect; ++ranksPerGpu)
     {
       // Test either single process all GPUs, or 1 process per GPU
@@ -710,7 +732,7 @@ namespace RcclUnitTesting
           // Only allocate once for largest size
           if (neIdx == 0)
           {
-            this->AllocateMem(inPlaceList[ipIdx], managedMemList[mmIdx]);
+            this->AllocateMem(inPlaceList[ipIdx], managedMemList[mmIdx], -1, -1, -1, userRegistered);
             if (testing::Test::HasFailure())
             {
               isCorrect = false;
