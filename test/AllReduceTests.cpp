@@ -246,30 +246,7 @@ namespace RcclUnitTesting
     testBed.Finalize();
   }
 
-  /*TEST(AllReduce, UserBufferRegister)
-  {
-    TestBed testBed;
-
-    // Configuration
-    std::vector<ncclFunc_t>     const funcTypes       = {ncclCollAllReduce};
-    std::vector<ncclDataType_t> const dataTypes       = {ncclFloat32};
-    std::vector<ncclRedOp_t>    const redOps          = {ncclSum};
-    std::vector<int>            const roots           = {0};
-    std::vector<int>            const numElements     = {1024};
-    std::vector<bool>           const inPlaceList     = {false};
-    std::vector<bool>           const managedMemList  = {false};
-    std::vector<bool>           const useHipGraphList = {false};
-    
-    bool                        const  useManagedMem   = false;
-    bool                        const  userRegistered  = true;
-
-    testBed.RunSimpleSweep(funcTypes, dataTypes, redOps, roots, numElements,
-                           inPlaceList, managedMemList, useHipGraphList, userRegistered);
-
-    testBed.Finalize();
-  }*/
-
-  TEST(AllReduce, UBR)
+  /*TEST(AllReduce, UBR)
   {
     TestBed testBed;
     std::vector<ncclFunc_t>     const funcTypes       = {ncclCollAllReduce};
@@ -430,6 +407,30 @@ namespace RcclUnitTesting
     }
 
     testBed.DestroyComms();  
+    testBed.Finalize();
+  }*/
+
+  TEST(AllReduce, UBR)
+  {
+    TestBed testBed;
+    //testBed.ev.processMask = (1<<1);//UT_MULTI_PROCESS  //i still have to manually set, or place above testBed
+    testBed.ev.maxRanksPerGpu = 1;
+    testBed.ev.maxGpus = 2;
+    testBed.ev.verbose = true;
+    // Configuration
+    std::vector<ncclFunc_t>     const funcTypes       = {ncclCollAllReduce};
+    std::vector<ncclDataType_t> const dataTypes       = {ncclInt32};
+    std::vector<ncclRedOp_t>    const redOps          = {ncclSum};
+    std::vector<int>            const roots           = {0};
+    std::vector<int>            const numElements     = {1024};
+    std::vector<bool>           const inPlaceList     = {false};
+    std::vector<bool>           const managedMemList  = {false};
+    std::vector<bool>           const useHipGraphList = {false};
+    bool                        const  userRegistered  = true;
+    bool                        const  enableSweep = true;
+    printf("test userRegistered:%i\n", userRegistered);
+    testBed.RunSimpleSweep(funcTypes, dataTypes, redOps, roots, numElements,
+                           inPlaceList, managedMemList, useHipGraphList, enableSweep, userRegistered);
     testBed.Finalize();
   }
 
