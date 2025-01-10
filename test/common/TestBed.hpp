@@ -15,6 +15,35 @@ namespace RcclUnitTesting
 {
   // This class facilitates testing RCCL collectives across various process / device configurations
   //
+
+#define HIP_CALL(cmd)                                                                      \
+    do                                                                                     \
+    {                                                                                      \
+        hipError_t error = (cmd);                                                          \
+        if (error != hipSuccess)                                                           \
+        {                                                                                  \
+            std::cerr << "Encountered HIP error (" << hipGetErrorString(error)             \
+                      << ") at line " << __LINE__ << " in file " << __FILE__ << std::endl; \
+            abort();                                                                       \
+        }                                                                                  \
+    } while (0)
+
+#define NCCLCHECK(cmd)                                           \
+    do                                                           \
+    {                                                            \
+        ncclResult_t res = cmd;                                  \
+        if (res != ncclSuccess)                                  \
+        {                                                        \
+            printf("Failed, NCCL error %s:%d '%s'\n",            \
+                   __FILE__, __LINE__, ncclGetErrorString(res)); \
+            exit(EXIT_FAILURE);                                  \
+        }                                                        \
+    } while (0)
+
+
+
+  void call_RCCL(ncclUniqueId id, int myRank, int nRanks);
+
   class TestBed
   {
   public:

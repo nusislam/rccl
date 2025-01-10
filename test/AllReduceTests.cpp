@@ -422,16 +422,62 @@ namespace RcclUnitTesting
     std::vector<ncclDataType_t> const dataTypes       = {ncclInt32};
     std::vector<ncclRedOp_t>    const redOps          = {ncclSum};
     std::vector<int>            const roots           = {0};
-    std::vector<int>            const numElements     = {1024};
+    std::vector<int>            const numElements     = {256};
     std::vector<bool>           const inPlaceList     = {false};
     std::vector<bool>           const managedMemList  = {false};
     std::vector<bool>           const useHipGraphList = {false};
     bool                        const  userRegistered  = true;
     bool                        const  enableSweep = true;
+
     printf("test userRegistered:%i\n", userRegistered);
     testBed.RunSimpleSweep(funcTypes, dataTypes, redOps, roots, numElements,
                            inPlaceList, managedMemList, useHipGraphList, enableSweep, userRegistered);
     testBed.Finalize();
+  }
+
+  TEST(AllReduce, UBR2)
+  {
+    int nranks = 2;
+    pid_t child0, child1;
+   
+    ncclUniqueId id;
+    int child0pipe[2];
+    int child1pipe[2];
+    printf("HEre\n");
+    if (pipe(child0pipe) == -1) {
+        printf("child0pipe Failed\n");
+    }
+    if (pipe(child1pipe) == -1) {
+        printf("child1pipe Failed\n");
+    }
+    child0 = fork();
+
+    if(child0 == 0){
+        ncclGetUniqueId(&id);
+        close(child0pipe[0]);
+        write(child0pipe[1], &id, sizeof(ncclUniqueId));
+        close(child0pipe[1]);
+        call_RCCL(id, 0, 2);
+    }
+    else{
+      child1 = fork();
+      if(child1 == 0){
+        close(child1pipe[1]); //close write to child0
+        read(child1pipe[0], &id, sizeof(ncclUniqueId));
+        close(child1pipe[0]);
+        call_RCCL(id, 1, 2);
+      }
+      else{
+        //parent process
+        close(child0pipe[1]); //close write to child0
+        read(child0pipe[0], &id, sizeof(ncclUniqueId));
+        write(child1pipe[1], &id, sizeof(ncclUniqueId));
+        close(child1pipe[1]);
+      }
+    }
+
+    wait(NULL); // Wait for both children
+    wait(NULL);
   }
 
 }
