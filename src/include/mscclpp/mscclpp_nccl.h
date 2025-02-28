@@ -43,9 +43,9 @@ extern "C" {
 
   ncclResult_t mscclpp_ncclCommDeregister(mscclppComm_t comm, void* handle);
 
-  bool mscclpp_BuffIsRegistered(mscclppComm_t comm, const void* buff);
+  /*bool mscclpp_BuffIsRegistered(mscclppComm_t comm, const void* buff);
 
-  size_t mscclpp_BufferSize(mscclppComm_t comm, void* handle);
+  size_t mscclpp_BufferSize(mscclppComm_t comm, void* handle);*/
 
   ncclResult_t mscclpp_ncclMemAlloc(void** ptr, size_t size);
 

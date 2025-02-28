@@ -65,35 +65,35 @@ if(ENABLE_MSCCLPP)
             )
         endif()
 
-        execute_process(
-           COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/cpx.patch
-           WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-        )
+	#execute_process(
+	#   COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/cpx.patch
+	#   WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-        execute_process(
-            COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/read-allred.patch
-            WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-        )
+	#execute_process(
+	#    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/read-allred.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-        execute_process(
-            COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mscclpp_ibv_access_relaxed_ordering.patch
-            WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-        )
+	#execute_process(
+	#    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mscclpp_ibv_access_relaxed_ordering.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-        execute_process(
-            COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mem-reg.patch
-            WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-        )
+	#execute_process(
+	#    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mem-reg.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-	execute_process(
-            COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/non-multiple-128-fix.patch
-            WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-        )
+	#execute_process(
+	#    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/non-multiple-128-fix.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-	execute_process(
-	    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/bf16-tuning.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/bf16-tuning.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
         message(STATUS "Building mscclpp only for supported variants:gfx942,gfx950")
         mscclpp_cmake_arg(CMAKE_PREFIX_PATH)
@@ -107,8 +107,8 @@ if(ENABLE_MSCCLPP)
         endif()
 
         download_project(PROJ                mscclpp_nccl
-                         #GIT_REPOSITORY      https://github.com/microsoft/mscclpp.git
-                         #GIT_TAG             4ee15b7ad085daaf74349d4c49c9b8480d28f0dc
+                         GIT_REPOSITORY      https://github.com/microsoft/mscclpp.git
+                         GIT_TAG             591276f9d07d2df8e2a45a16738e27867e468ca3
                          INSTALL_DIR         ${MSCCLPP_ROOT}
                          CMAKE_ARGS          -DAMDGPU_TARGETS=${GFX_VARIANT} -DGPU_TARGETS=${GFX_VARIANT} -DMSCCLPP_BYPASS_GPU_CHECK=ON -DMSCCLPP_USE_ROCM=ON -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DMSCCLPP_BUILD_APPS_NCCL=ON -DMSCCLPP_BUILD_PYTHON_BINDINGS=OFF -DMSCCLPP_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> "${CMAKE_PREFIX_PATH_ARG}" -DCMAKE_VERBOSE_MAKEFILE=1 "${CMAKE_INSTALL_RPATH_USE_LINK_PATH_ARG}" "${HIP_COMPILER_ARG}" -DFETCHCONTENT_SOURCE_DIR_JSON=${JSON_SOURCE}
                          LOG_DOWNLOAD        FALSE
@@ -121,35 +121,35 @@ if(ENABLE_MSCCLPP)
 
      
         find_package(mscclpp_nccl REQUIRED)
-	execute_process(
-	   COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/cpx.patch
-	   WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#   COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/cpx.patch
+	#   WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
         
-	execute_process(
-	    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/read-allred.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/read-allred.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
         
-	execute_process(
-	    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mscclpp_ibv_access_relaxed_ordering.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mscclpp_ibv_access_relaxed_ordering.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-	execute_process(
-	    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mem-reg.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/mem-reg.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-	execute_process(
-	    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/non-multiple-128-fix.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/non-multiple-128-fix.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
-	execute_process(
-	    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/bf16-tuning.patch
-	    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	)
+	#execute_process(
+	#    COMMAND git apply --reverse ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/bf16-tuning.patch
+	#    WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	#)
 
     #endif()
 
