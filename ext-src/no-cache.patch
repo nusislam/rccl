@@ -1,0 +1,102 @@
+diff --git a/apps/nccl/src/nccl.cu b/apps/nccl/src/nccl.cu
+index f91d15e..0c96cff 100644
+--- a/apps/nccl/src/nccl.cu
++++ b/apps/nccl/src/nccl.cu
+@@ -176,8 +176,9 @@ static std::shared_ptr<mscclpp::DeviceHandle<mscclpp::SmChannel>> setupSmChannel
+   std::vector<mscclpp::DeviceHandle<mscclpp::SmChannel>> smChannelDeviceHandles;
+   std::transform(smChannels.begin(), smChannels.end(), std::back_inserter(smChannelDeviceHandles),
+                  [](const mscclpp::SmChannel& smChannel) { return mscclpp::deviceHandle(smChannel); });
+-  std::shared_ptr<mscclpp::DeviceHandle<mscclpp::SmChannel>> ptr =
+-      mscclpp::detail::gpuCallocShared<mscclpp::DeviceHandle<mscclpp::SmChannel>>(smChannelDeviceHandles.size());
++  //std::shared_ptr<mscclpp::DeviceHandle<mscclpp::SmChannel>> ptr = nullptr;
++  std::shared_ptr<mscclpp::DeviceHandle<mscclpp::SmChannel>> ptr = 
++	  mscclpp::detail::gpuCallocShared<mscclpp::DeviceHandle<mscclpp::SmChannel>>(smChannelDeviceHandles.size());
+   mscclpp::gpuMemcpy<mscclpp::DeviceHandle<mscclpp::SmChannel>>(ptr.get(), smChannelDeviceHandles.data(),
+                                                                 smChannelDeviceHandles.size(), cudaMemcpyHostToDevice);
+   return ptr;
+@@ -213,6 +214,13 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+   channelKey recvKey{(void*)recvBasePtr, recvBytes};
+   mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels = nullptr;
+   mscclpp::DeviceHandle<mscclpp::SmChannel>* smOutChannels = nullptr;
++  size_t bytes = count * ncclTypeSize(datatype);
++  //int flag = 0;
++  recvBytes = bytes;
++  recvBasePtr = (CUdeviceptr)recvbuff;
++  offsetOut = 0;
++
++  channelKey recvKey1{(void*)recvBasePtr, recvBytes};
+ 
+   // Creating the channels
+   if (count * ncclTypeSize(datatype) <= (1 << 20)) {
+@@ -237,17 +245,25 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+     }
+ 
+     auto recvIt = comm->channelOutInfos.find(recvKey);
+-    if (recvIt == comm->channelOutInfos.end()) {
++    //if (recvIt == comm->channelOutInfos.end()) {
++      /*recvBytes = bytes;
++      recvBasePtr = (CUdeviceptr)recvbuff;
++      offsetOut = 0;*/
++
+       remoteMemories =
+           setupRemoteMemories(comm->comm, rank, (void*)recvBasePtr, recvBytes, mscclpp::Transport::CudaIpc);
+       std::vector<mscclpp::SmChannel> outChannels =
+           setupSmChannels(comm, remoteMemories, const_cast<void*>((void*)recvBasePtr));
+       ChannelInfo channelInfo{outChannels, setupSmChannelDeviceHandles(outChannels)};
+-      recvIt = comm->channelOutInfos.emplace(recvKey, channelInfo).first;
+-    }
++
++      //flag = 1;
++      recvIt = comm->channelOutInfos.emplace(recvKey1, channelInfo).first;
++    //}
+ 
+     smChannels = sendIt->second.smChannelDeviceHandles.get();
+     smOutChannels = recvIt->second.smChannelDeviceHandles.get();
++    //comm->channelOutInfos.erase(recvKey1);
++
+   }
+ 
+   switch (datatype) {
+@@ -276,6 +292,9 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+       WARN("datatype is invalid");
+       return ncclInvalidArgument;
+   }
++  //if (flag) {
++	comm->channelOutInfos.erase(recvKey1);
++  //}
+   return ncclSuccess;
+ }
+ 
+@@ -307,7 +326,10 @@ static ncclResult_t ncclAllGatherFallback(const void* sendbuff, void* recvbuff,
+   mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels = nullptr;
+ 
+   auto it = comm->channelOutInfos.find(recvKey);
+-  if (it == comm->channelOutInfos.end()) {
++  recvBytes = bytes;
++  recvBasePtr = (CUdeviceptr)recvbuff;
++  offsetOut = 0;
++  //if (it == comm->channelOutInfos.end()) {
+     std::vector<mscclpp::RegisteredMemory> remoteMemories = setupRemoteMemories(
+         comm->comm, rank, const_cast<void*>((void*)recvBasePtr), recvBytes, mscclpp::Transport::CudaIpc);
+     std::vector<mscclpp::SmChannel> channels =
+@@ -315,9 +337,10 @@ static ncclResult_t ncclAllGatherFallback(const void* sendbuff, void* recvbuff,
+     std::vector<mscclpp::DeviceHandle<mscclpp::SmChannel>> smChannelDeviceHandles;
+     std::transform(channels.begin(), channels.end(), std::back_inserter(smChannelDeviceHandles),
+                    [](const mscclpp::SmChannel& smChannel) { return mscclpp::deviceHandle(smChannel); });
++    channelKey recvKey1{(void*)recvBasePtr, recvBytes};
+     ChannelInfo channelInfo{channels, setupSmChannelDeviceHandles(channels)};
+-    it = comm->channelOutInfos.emplace(recvKey, channelInfo).first;
+-  }
++    it = comm->channelOutInfos.emplace(recvKey1, channelInfo).first;
++  //}
+ 
+   smChannels = it->second.smChannelDeviceHandles.get();
+   if ((char*)sendbuff == (char*)recvbuff + rank * sendcount) {
+@@ -327,6 +350,7 @@ static ncclResult_t ncclAllGatherFallback(const void* sendbuff, void* recvbuff,
+     CUDACHECK(allgather<true>((int*)sendbuff, (int*)nullptr, (int*)recvbuff, smChannels, offsetOut, rank,
+                               NRANKS_PER_NODE, nRank, bytes / sizeof(int), stream));
+   }
++  comm->channelOutInfos.erase(recvKey1);
+ 
+   return ncclSuccess;
+ }

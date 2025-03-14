@@ -186,11 +186,11 @@ ncclResult_t ncclCommDeregister_impl(const ncclComm_t comm, void* handle) {
 
   #ifdef ENABLE_MSCCLPP
   if (comm->mscclppCompatible) {
-    const size_t size = mscclpp_BufferSize(comm->mscclpp_comm, handle);
+    /*const size_t size = mscclpp_BufferSize(comm->mscclpp_comm, handle);
     if (comm->mscclCompatible && size > 0) {
         NCCLCHECK(mscclpp_ncclCommDeregister(comm->mscclpp_comm, handle));
       return ncclSuccess;
-    }
+    }*/
   }
   #endif
 

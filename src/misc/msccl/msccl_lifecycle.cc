@@ -522,10 +522,11 @@ ncclResult_t mscclEnqueueCheck(
         INFO(NCCL_COLL, "MSCCL++: reading capture status");
         NCCLCHECK(mscclGetCaptureStatus(comm->rank, stream));
 
-        const bool sendBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, sendBuff); 
-        const bool recvBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, recvBuff);
+        /*const bool sendBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, sendBuff); 
+        const bool recvBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, recvBuff);*/
         const bool graphMode = threadLocalStatus.captureStatus != mscclNoCapture;
-        const bool buffsRegistered = sendBuffRegistered && recvBuffRegistered;
+        //const bool buffsRegistered = sendBuffRegistered && recvBuffRegistered;
+        const bool buffsRegistered = false;
 
         /* check if one rank per GPU and graph mode is enabled */
         if ((graphMode || buffsRegistered || comm->mscclppForceEnable) && comm->mscclCompatible && nBytes > 0 && (nBytes & 31) == 0) {
@@ -568,10 +569,11 @@ ncclResult_t mscclEnqueueCheck(
 	INFO(NCCL_COLL, "MSCCL++: reading capture status");
         NCCLCHECK(mscclGetCaptureStatus(comm->rank, stream));
 
-        const bool sendBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, sendBuff); 
-        const bool recvBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, recvBuff);
+        /*const bool sendBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, sendBuff); 
+        const bool recvBuffRegistered = mscclpp_BuffIsRegistered(comm->mscclpp_comm, recvBuff);*/
         const bool graphMode = threadLocalStatus.captureStatus != mscclNoCapture;
-        const bool buffsRegistered = sendBuffRegistered && recvBuffRegistered;
+        //const bool buffsRegistered = sendBuffRegistered && recvBuffRegistered;
+        const bool buffsRegistered = false;
 
         /* check if one rank per GPU and graph mode is enabled */
         if ((graphMode || buffsRegistered || comm->mscclppForceEnable) && comm->mscclCompatible && nBytes > 0 && (nBytes & 31) == 0) {
