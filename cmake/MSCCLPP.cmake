@@ -71,10 +71,10 @@ if(ENABLE_MSCCLPP)
            COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/read-allred.patch
            WORKING_DIRECTORY ${MSCCLPP_SOURCE}
         )
-	#execute_process(
-	#   COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/reduction-fix.patch
-	#   WORKING_DIRECTORY ${MSCCLPP_SOURCE}
-	#)
+	execute_process(
+	   COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/ext-src/reduction-fix.patch
+	   WORKING_DIRECTORY ${MSCCLPP_SOURCE}
+	)
 
         message(STATUS "Building mscclpp only for gfx942.")
 
