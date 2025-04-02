@@ -1,0 +1,67 @@
+diff --git a/apps/nccl/src/allreduce.hpp b/apps/nccl/src/allreduce.hpp
+index ee90c2f..377c73f 100644
+--- a/apps/nccl/src/allreduce.hpp
++++ b/apps/nccl/src/allreduce.hpp
+@@ -723,7 +723,7 @@ cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<
+   }
+ 
+ 
+-  if (sizeof(T) * nelems < worldSize * sizeof(int)) {
++  /*if (sizeof(T) * nelems < worldSize * sizeof(int)) {
+     int nBlocks = 7;
+     int nThreadsPerBlock = 32;
+     allreduceAllToAll<<<nBlocks, nThreadsPerBlock, 0, stream>>>(buff, scratch, resultBuff, smChannels,
+@@ -738,8 +738,12 @@ cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<
+     allreduce7<<<nBlocks, nThreadsPerBlock, 0, stream>>>(buff, scratch, resultBuff, smChannels, channelInOffset,
+                                                          channelScratchOffset, rank, nRanksPerNode, worldSize, nelems,
+                                                          flag++);
+-  } else {
++  } else {*/
+     int nBlocks = 35;
++    if(sizeof(T) * nelems <= (1 << 20)) {
++        nBlocks = 28;
++    }
++
+     int nThreadsPerBlock = 512;
+     if (hieAllred && worldSize >= 8) {
+ 	nBlocks = 20;
+@@ -756,7 +760,7 @@ cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<
+                                                          channelOutOffset, rank, nRanksPerNode,	worldSize, nelems);
+       }
+     }
+-  }
++  //}
+ 
+   return cudaGetLastError();
+ }
+diff --git a/apps/nccl/src/nccl.cu b/apps/nccl/src/nccl.cu
+index a697be2..a7cad80 100644
+--- a/apps/nccl/src/nccl.cu
++++ b/apps/nccl/src/nccl.cu
+@@ -220,7 +220,7 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+   mscclpp::DeviceHandle<mscclpp::SmChannel>* smScrChannels = nullptr;
+ 
+   // Creating the channels
+-  if (count * ncclTypeSize(datatype) <= comm->largeMessageSizeBoundary) {
++  /*if (count * ncclTypeSize(datatype) <= comm->largeMessageSizeBoundary) {
+     auto sendIt = comm->channelScratchInfos.find(sendKey);
+     if (sendIt == comm->channelScratchInfos.end()) {
+       std::vector<mscclpp::SmChannel> channels =
+@@ -230,7 +230,7 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+     }
+ 
+     smChannels = sendIt->second.smChannelDeviceHandles.get();
+-  } else {
++  } else {*/
+     std::vector<mscclpp::RegisteredMemory> remoteMemories;
+     std::vector<mscclpp::RegisteredMemory> remoteMemories1;
+ 
+@@ -260,7 +260,7 @@ static ncclResult_t ncclAllReduceFallback(const void* sendbuff, void* recvbuff,
+     smChannels = sendIt->second.smChannelDeviceHandles1.get();
+     smOutChannels = recvIt->second.smChannelDeviceHandles.get();
+     smScrChannels = sendIt->second.smChannelDeviceHandles.get();
+-  }
++  //}
+ 
+   switch (datatype) {
+     case ncclFloat16:
