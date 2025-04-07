@@ -43,7 +43,7 @@ index 1b85136..2fc9596 100644
      uint32_t data = dstPkt[idx + dstOffset].read(flag, -1);
      result[idx] = data;
    }
-+  __synthreads();
++  __syncthreads();
 +
 +  if (blockIdx.x == 0 && threadIdx.x == 0) {
 +        globalFlag += 1;
