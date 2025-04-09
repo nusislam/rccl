@@ -121,7 +121,7 @@ index 1b85136..db189f4 100644
      int nBlocks = 35;
      int nThreadsPerBlock = 512;
 diff --git a/apps/nccl/src/nccl.cu b/apps/nccl/src/nccl.cu
-index cb0e7d5..8effa5b 100644
+index cb0e7d5..524affb 100644
 --- a/apps/nccl/src/nccl.cu
 +++ b/apps/nccl/src/nccl.cu
 @@ -69,6 +69,8 @@ struct ncclComm {
@@ -162,15 +162,16 @@ index cb0e7d5..8effa5b 100644
        break;
      default:
        return ncclInvalidArgument;
-@@ -339,6 +342,13 @@ NCCL_API ncclResult_t ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueI
+@@ -339,6 +342,14 @@ NCCL_API ncclResult_t ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueI
    commPtr->scratchBuff = mscclpp::allocExtSharedCuda<char>(SCRATCH_SIZE);
    commPtr->remoteScratchRegMemories =
        setupRemoteMemories(commPtr->comm, rank, commPtr->scratchBuff.get(), SCRATCH_SIZE, mscclpp::Transport::CudaIpc);
 +
-+  hipExtMallocWithFlags((void**)&(commPtr->syncer), sizeof(mscclpp::DeviceSyncer), hipDeviceMallocUncached);
++  hipMalloc((void**)&(commPtr->syncer), sizeof(mscclpp::DeviceSyncer));
++  hipMemset((void*)(commPtr->syncer), 0, sizeof(mscclpp::DeviceSyncer));
 +
 +  uint64_t initFlag = 1;
-+  hipExtMallocWithFlags((void**)&(commPtr->deviceFlag), sizeof(uint64_t), hipDeviceMallocUncached);
++  hipMalloc((void**)&(commPtr->deviceFlag), sizeof(uint64_t));
 +  hipMemcpy((void*)(commPtr->deviceFlag), &initFlag, sizeof(uint64_t), hipMemcpyHostToDevice);
 +
    commPtr->executor = std::make_shared<mscclpp::Executor>(mscclppComm);
