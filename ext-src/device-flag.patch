@@ -1,5 +1,5 @@
 diff --git a/apps/nccl/src/allreduce.hpp b/apps/nccl/src/allreduce.hpp
-index 1b85136..db189f4 100644
+index 1b85136..fadea95 100644
 --- a/apps/nccl/src/allreduce.hpp
 +++ b/apps/nccl/src/allreduce.hpp
 @@ -14,8 +14,6 @@
@@ -90,7 +90,7 @@ index 1b85136..db189f4 100644
  }
  
  template <typename T>
-@@ -390,15 +418,15 @@ template <typename T>
+@@ -390,16 +418,16 @@ template <typename T>
  cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels,
                        mscclpp::DeviceHandle<mscclpp::SmChannel>* smOutChannels, size_t channelInOffset,
                        size_t channelOutOffset, size_t channelScratchOffset, int rank, int nRanksPerNode, int worldSize,
@@ -105,10 +105,12 @@ index 1b85136..db189f4 100644
      allreduceAllToAll<<<nBlocks, nThreadsPerBlock, 0, stream>>>(buff, scratch, resultBuff, smChannels, channelInOffset,
                                                                  channelScratchOffset, rank, nRanksPerNode, worldSize,
 -                                                                nelems, flag++);
+-  } else if (sizeof(T) * nelems <= (1 << 20)) {
 +                                                                nelems, deviceFlag, syncer);
-   } else if (sizeof(T) * nelems <= (1 << 20)) {
++  } else if (sizeof(T) * nelems <= (1 << 18)) {
      int nBlocks = 28;
      int nThreadsPerBlock = 1024;
+     if (nelems >= 8192) {
 @@ -407,8 +435,8 @@ cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<
        nThreadsPerBlock = (nelems <= 76800) ? 512 : 1024;
      }
@@ -121,7 +123,7 @@ index 1b85136..db189f4 100644
      int nBlocks = 35;
      int nThreadsPerBlock = 512;
 diff --git a/apps/nccl/src/nccl.cu b/apps/nccl/src/nccl.cu
-index cb0e7d5..524affb 100644
+index cb0e7d5..008c216 100644
 --- a/apps/nccl/src/nccl.cu
 +++ b/apps/nccl/src/nccl.cu
 @@ -69,6 +69,8 @@ struct ncclComm {
@@ -177,3 +179,12 @@ index cb0e7d5..524affb 100644
    commPtr->executor = std::make_shared<mscclpp::Executor>(mscclppComm);
  
    if (getenv("ALLREDUCEPKT_IP_JSON_FILE"))
+@@ -360,7 +371,7 @@ NCCL_API ncclResult_t ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueI
+   if (getenv("ALLREDUCE_LARGE_MSG_BOUNDARY"))
+     commPtr->largeMessageSizeBoundary = parseSize(getenv("ALLREDUCE_LARGE_MSG_BOUNDARY"));
+   else
+-    commPtr->largeMessageSizeBoundary = 1 << 20;
++    commPtr->largeMessageSizeBoundary = 1 << 18;
+ 
+   if (commPtr->smallMessageSizeBoundary > commPtr->largeMessageSizeBoundary) return ncclInvalidArgument;
+ 
