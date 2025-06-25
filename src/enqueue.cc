@@ -1886,6 +1886,27 @@ static ncclResult_t topoGetAlgoInfo(
     }
   }
 
+  int ranksPerNode = comm->nRanks/comm->nNodes;
+  if (ranksPerNode == 1 && comm->nNodes > 1) {
+        if (info->func == ncclFuncReduceScatter || info->func == ncclFuncAllGather) {
+                algorithm = 1;
+                if (nBytes <= 131072)
+                        protocol = 0;
+                else if (nBytes > 67108864)
+                        protocol = 2;
+                else
+                        protocol = 1;
+        } else if (info->func == ncclFuncAllReduce) {
+                algorithm = 1;
+                if (nBytes <= 1048576)
+                        protocol = 0;
+                else if (nBytes > 134217728)
+                        protocol = 2;
+                else
+                        protocol = 1;
+        }
+  }
+
   info->algorithm = algorithm;
   info->protocol = protocol;
   float time = minTime;
