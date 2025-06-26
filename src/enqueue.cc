@@ -1888,6 +1888,7 @@ static ncclResult_t topoGetAlgoInfo(
 
   int ranksPerNode = comm->nRanks/comm->nNodes;
   if (ranksPerNode == 1 && comm->nNodes > 1) {
+	info->nMaxChannels = std::min(16, comm->nChannels);
         if (info->func == ncclFuncReduceScatter || info->func == ncclFuncAllGather) {
                 algorithm = 1;
                 if (nBytes <= 131072)

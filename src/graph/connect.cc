@@ -872,6 +872,10 @@ ncclResult_t ncclTopoPostset(struct ncclComm* comm, int* firstRanks, int* treePa
     minNchannels = 2;
     WARN("NCCL_MIN_NCHANNELS set by environment is ignored due to greater than max allowed %d channels.", maxChannels);
   }
+  if (comm->nRanks/comm->nNodes == 1) {
+        minNchannels = 16;
+	WARN("NCCL_MIN_NCHANNELS set by environment is ignored due to 1 GPU per node.");
+  }
 
   if (mscclEnabled() && (comm->topo->mscclEnabled || mscclForceEnabled())) {
     int mscclNumChannelsRequired = maxNchannels;
