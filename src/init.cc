@@ -56,6 +56,8 @@
 #include "rccl_common.h"
 // [/RCCL]
 
+#include <rocshmem/rocshmem.hpp>
+
 #include "msccl/msccl_lifecycle.h"
 #include "msccl/msccl_status.h"
 #include "latency_profiler/CollTrace.h"

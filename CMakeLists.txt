@@ -16,6 +16,13 @@ endif()
 #==================================================================================================
 project(rccl CXX)
 
+# rocSHMEM support toggle
+option(WITH_ROCSHMEM "Enable rocSHMEM support in RCCL" OFF)
+set(ROCSHMEM_ROOT "" CACHE PATH "Path to rocSHMEM install prefix")
+if (WITH_ROCSHMEM)
+  find_package(MPI REQUIRED)
+endif()
+
 # Build options
 #==================================================================================================
 option(BUILD_ADDRESS_SANITIZER                 "Enable address sanitizer"                      OFF)
@@ -40,6 +47,7 @@ option(PROFILE                                 "Enable profiling"               
 option(TIMETRACE                               "Enable time-trace during compilation"          OFF)
 option(TRACE                                   "Enable additional tracing"                     OFF)
 option(FAULT_INJECTION                         "Enable fault injection"                        ON)
+option(WITH_ROCSHMEM                           "Enable rocSHMEM support in RCCL"               ON)
 
 # Default GPU architectures to build
 #==================================================================================================
@@ -311,6 +319,8 @@ if(BUILD_BFD)
     message(WARNING "bfd.h header not found - Disabling custom backtrace")
   endif()
 endif()
+
+
 
 # Check for --amdgpu-kernarg-preload-count
 check_cxx_compiler_flag("-mllvm --amdgpu-kernarg-preload-count=16" HAVE_KERNARG_PRELOAD)
@@ -942,6 +952,57 @@ if(HAVE_ROCM_SMI64CONFIG)
 endif()
 if(HAVE_ROCM_SMI_THREAD_ONLY_MUTEX)
   target_compile_definitions(rccl PRIVATE USE_ROCM_SMI_THREAD_ONLY_MUTEX)
+endif()
+
+# ==== rocSHMEM integration (optional) ====
+
+if (WITH_ROCSHMEM)
+  # make all sources in this dir see mpi.h
+  include_directories(SYSTEM ${MPI_CXX_INCLUDE_DIRS})
+
+  # Link MPI to rccl 
+  target_link_libraries(rccl PRIVATE MPI::MPI_CXX)
+endif()
+
+if (WITH_ROCSHMEM)
+  # Find rocSHMEM headers and library
+  find_path(ROCSHMEM_INCLUDE_DIR
+            NAMES rocshmem/rocshmem.hpp rocshmem/rocshmem.h
+            HINTS ${ROCSHMEM_ROOT}/include)
+  find_library(ROCSHMEM_LIBRARY
+               NAMES rocshmem
+               HINTS ${ROCSHMEM_ROOT}/lib ${ROCSHMEM_ROOT}/lib64)
+
+  if (NOT ROCSHMEM_INCLUDE_DIR OR NOT ROCSHMEM_LIBRARY)
+    message(FATAL_ERROR "rocSHMEM not found; pass -DROCSHMEM_ROOT=/path/to/rocshmem")
+  endif()
+
+  # Device-side calls into rocSHMEM require HIP separable compilation 
+  # ** Removing this for now while I debug linking stack frame issue **
+  #set_property(TARGET rccl PROPERTY HIP_SEPARABLE_COMPILATION ON)
+
+  target_include_directories(rccl PRIVATE ${ROCSHMEM_INCLUDE_DIR})
+  target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
+
+  # These might be needed since I built the RO+IPC backend,
+  find_library(MPI_LIB mpi HINTS $ENV{MPI_ROOT}/lib $ENV{MPI_ROOT}/lib64)
+  find_library(UCX_LIB ucx HINTS $ENV{UCX_ROOT}/lib $ENV{UCX_ROOT}/lib64)
+  if (MPI_LIB)
+    target_link_libraries(rccl PRIVATE ${MPI_LIB})
+  endif()
+  if (UCX_LIB)
+    target_link_libraries(rccl PRIVATE ${UCX_LIB})
+  endif()
+
+  # Core ROCm runtimes are commonly present already
+  find_library(HIP_RT amdhip64 HINTS /opt/rocm/lib /opt/rocm/lib64)
+  find_library(HSA_RT hsa-runtime64 HINTS /opt/rocm/lib /opt/rocm/lib64)
+  if (HIP_RT)
+    target_link_libraries(rccl PRIVATE ${HIP_RT})
+  endif()
+  if (HSA_RT)
+    target_link_libraries(rccl PRIVATE ${HSA_RT})
+  endif()
 endif()
 
 # NPKit flags
