@@ -41,6 +41,7 @@ option(PROFILE                                 "Enable profiling"               
 option(TIMETRACE                               "Enable time-trace during compilation"          OFF)
 option(TRACE                                   "Enable additional tracing"                     OFF)
 option(FAULT_INJECTION                         "Enable fault injection"                        ON)
+option(ENABLE_ROCSHMEM                         "Enable rocSHMEM support in RCCL"               ON)
 
 # Default GPU architectures to build
 #==================================================================================================
@@ -63,6 +64,8 @@ include(CheckIncludeFiles)
 include(CheckSymbolExists)
 include(cmake/Dependencies.cmake) # GTest, rocm-cmake, rocm_local_targets
 include(cmake/CheckSymbolExistsNoWarn.cmake)
+# -- TODO -- do we wish to guard this include with if ENABLE_ROCSHMEM? -- #
+include(cmake/ROCSHMEM.cmake)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -312,6 +315,8 @@ if(BUILD_BFD)
     message(WARNING "bfd.h header not found - Disabling custom backtrace")
   endif()
 endif()
+
+
 
 # Check for --amdgpu-kernarg-preload-count
 check_cxx_compiler_flag("-mllvm --amdgpu-kernarg-preload-count=16" HAVE_KERNARG_PRELOAD)
@@ -932,6 +937,7 @@ if(DEMANGLE_DIR)
   target_include_directories(rccl PRIVATE ${DEMANGLE_DIR})
 endif()
 
+
 ## Set RCCL compile definitions
 if(COLLTRACE)
   target_compile_definitions(rccl PRIVATE ENABLE_COLLTRACE)
@@ -947,6 +953,21 @@ if(HAVE_ROCM_SMI64CONFIG)
 endif()
 if(HAVE_ROCM_SMI_THREAD_ONLY_MUTEX)
   target_compile_definitions(rccl PRIVATE USE_ROCM_SMI_THREAD_ONLY_MUTEX)
+endif()
+if(ENABLE_ROCSHMEM)
+  target_compile_definitions(rccl PRIVATE ENABLE_ROCSHMEM)
+endif()
+
+# ==== rocSHMEM integration (optional) ====
+
+if (ENABLE_ROCSHMEM)
+  add_rocshmem_targets()
+  target_include_directories(rccl PRIVATE ${ROCSHMEM_INCLUDE_DIR})
+
+  # Moved to where MSCCL target_links
+  ## target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
+  ##target_link_libraries(rccl PRIVATE ${IBVERBS})
+
 endif()
 
 # NPKit flags
@@ -1269,6 +1290,10 @@ target_link_libraries(rccl PRIVATE fmt::fmt-header-only)
 if(ENABLE_MSCCLPP)
   target_link_libraries(rccl PRIVATE mscclpp_nccl)
 endif()
+if(ENABLE_ROCSHMEM)
+  target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
+  target_link_libraries(rccl PRIVATE ${IBVERBS})
+endif()
 
 ## Set RCCL link options
 ## Find out available memory
@@ -1316,6 +1341,10 @@ endif()
 
 if(ENABLE_MSCCLPP)
   include(cmake/MSCCLPP.cmake)
+endif()
+
+if(ENABLE_ROCSHMEM)
+  include(cmake/ROCSHMEM.cmake)
 endif()
 
 ## Track linking time
