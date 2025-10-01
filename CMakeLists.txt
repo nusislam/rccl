@@ -18,9 +18,7 @@ project(rccl CXX)
 
 # rocSHMEM support toggle
 set(ROCSHMEM_ROOT "" CACHE PATH "Path to rocSHMEM install prefix")
-if (WITH_ROCSHMEM)
-  find_package(MPI REQUIRED)
-endif()
+
 
 # Build options
 #==================================================================================================
@@ -956,14 +954,6 @@ endif()
 # ==== rocSHMEM integration (optional) ====
 
 if (WITH_ROCSHMEM)
-  # make all sources in this dir see mpi.h
-  include_directories(SYSTEM ${MPI_CXX_INCLUDE_DIRS})
-
-  # Link MPI to rccl 
-  target_link_libraries(rccl PRIVATE MPI::MPI_CXX)
-endif()
-
-if (WITH_ROCSHMEM)
   # Find rocSHMEM headers and library
   find_path(ROCSHMEM_INCLUDE_DIR
             NAMES rocshmem/rocshmem.hpp rocshmem/rocshmem.h
@@ -983,25 +973,6 @@ if (WITH_ROCSHMEM)
   target_include_directories(rccl PRIVATE ${ROCSHMEM_INCLUDE_DIR})
   target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
 
-  # These might be needed since I built the RO+IPC backend,
-  find_library(MPI_LIB mpi HINTS $ENV{MPI_ROOT}/lib $ENV{MPI_ROOT}/lib64)
-  find_library(UCX_LIB ucx HINTS $ENV{UCX_ROOT}/lib $ENV{UCX_ROOT}/lib64)
-  if (MPI_LIB)
-    target_link_libraries(rccl PRIVATE ${MPI_LIB})
-  endif()
-  if (UCX_LIB)
-    target_link_libraries(rccl PRIVATE ${UCX_LIB})
-  endif()
-
-  # Core ROCm runtimes are commonly present already
-  find_library(HIP_RT amdhip64 HINTS /opt/rocm/lib /opt/rocm/lib64)
-  find_library(HSA_RT hsa-runtime64 HINTS /opt/rocm/lib /opt/rocm/lib64)
-  if (HIP_RT)
-    target_link_libraries(rccl PRIVATE ${HIP_RT})
-  endif()
-  if (HSA_RT)
-    target_link_libraries(rccl PRIVATE ${HSA_RT})
-  endif()
 endif()
 
 # NPKit flags
