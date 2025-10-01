@@ -17,7 +17,6 @@ endif()
 project(rccl CXX)
 
 # rocSHMEM support toggle
-option(WITH_ROCSHMEM "Enable rocSHMEM support in RCCL" OFF)
 set(ROCSHMEM_ROOT "" CACHE PATH "Path to rocSHMEM install prefix")
 if (WITH_ROCSHMEM)
   find_package(MPI REQUIRED)
