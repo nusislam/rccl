@@ -2038,6 +2038,12 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   // RCCL: determine and set unroll factor for comm
   NCCLCHECK(commSetUnrollFactor(comm));
 
+#ifdef ENABLE_ROCSHMEM
+  rocshmem::rocshmem_uniqueid_t uid;
+  rocshmem::rocshmem_init_attr_t attr;
+#endif
+
+
 #ifdef ENABLE_MSCCLPP
   if (job->parent) {
     if (job->parent->mscclppCompatible) {

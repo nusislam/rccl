@@ -955,6 +955,7 @@ endif()
 
 # ==== rocSHMEM integration (optional) ====
 if (WITH_ROCSHMEM)
+  target_compile_definitions(rccl PRIVATE ENABLE_ROCSHMEM)
   # make all sources in this dir see mpi.h
   include_directories(SYSTEM ${MPI_CXX_INCLUDE_DIRS})
 
