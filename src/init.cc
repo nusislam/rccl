@@ -98,6 +98,12 @@ NCCL_PARAM(NvlsChannels, "NVLS_NCHANNELS", NCCL_CONFIG_UNDEF_INT);
 struct allocationTracker allocTracker[MAX_ALLOC_TRACK_NGPU] = {};
 static ncclResult_t commReclaim(ncclComm_t comm);
 
+
+#ifdef ENABLE_ROCSHMEM
+RCCL_PARAM(RocshmemThrehsold, "ROCSHMEM_THRESOLD", (size_t)(1024*1024));
+RCCL_PARAM(RocshmemEnabled, "ROCSHMEM_ENABLE", 1); // @TODO - unable to disable this at runtime
+#endif
+
 #ifdef ENABLE_MSCCLPP
 size_t std::hash<ncclUniqueId>::operator ()(const ncclUniqueId& uniqueId) const noexcept {
   return (size_t)getHash(uniqueId.internal, NCCL_UNIQUE_ID_BYTES);
@@ -2039,8 +2045,36 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   NCCLCHECK(commSetUnrollFactor(comm));
 
 #ifdef ENABLE_ROCSHMEM
-  rocshmem::rocshmem_uniqueid_t uid;
-  rocshmem::rocshmem_init_attr_t attr;
+  /* --- sanity-check print statement for development purposes --- */
+  printf("Initializing rocSHMEM inside of RCCL\n");
+  if (rcclParamRocshmemEnabled()) { // @TODO - This doesn't seem to disable when I set ROCSHMEM_ENABLE=0 on command line
+    int ret;
+    rocshmem::rocshmem_uniqueid_t rocshmemUniqueId;
+    rocshmem::rocshmem_init_attr_t rocshmemAttr;
+
+    if(comm->localRank == 0 ) {
+      ret = rocshmem::rocshmem_get_uniqueid (&rocshmemUniqueId);
+      if (ret != rocshmem::ROCSHMEM_SUCCESS) {
+        WARN("Error in rocshmem_get_uniqueid, Aborting.");
+        abort();
+      }
+    }
+  
+    NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);
+    ret = rocshmem::rocshmem_set_attr_uniqueid_args(job->myrank, job->nranks, &rocshmemUniqueId, &rocshmemAttr);
+    if (ret != rocshmem::ROCSHMEM_SUCCESS) {
+      WARN("Error in rocshmem_set_attr_uniqueid_args, Aborting.");
+      abort();
+    }
+
+    ret = rocshmem::rocshmem_init_attr(rocshmem::ROCSHMEM_INIT_WITH_UNIQUEID, &rocshmemAttr);
+    if (ret != rocshmem::ROCSHMEM_SUCCESS) {
+      WARN("Error in rocshmem_init_attr, Aborting.");
+      abort();
+    }
+    
+    rocshmem::rocshmem_finalize();
+  }
 #endif
 
 

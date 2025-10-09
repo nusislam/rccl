@@ -954,12 +954,14 @@ endif()
 
 if (WITH_ROCSHMEM)
   # Find rocSHMEM headers and library
+  target_compile_definitions(rccl PRIVATE ENABLE_ROCSHMEM)
   find_path(ROCSHMEM_INCLUDE_DIR
             NAMES rocshmem/rocshmem.hpp rocshmem/rocshmem.h
             HINTS ${ROCSHMEM_ROOT}/include)
   find_library(ROCSHMEM_LIBRARY
                NAMES rocshmem
                HINTS ${ROCSHMEM_ROOT}/lib ${ROCSHMEM_ROOT}/lib64)
+  find_library(IBVERBS ibverbs)
 
   if (NOT ROCSHMEM_INCLUDE_DIR OR NOT ROCSHMEM_LIBRARY)
     message(FATAL_ERROR "rocSHMEM not found; pass -DROCSHMEM_ROOT=/path/to/rocshmem")
@@ -971,6 +973,7 @@ if (WITH_ROCSHMEM)
 
   target_include_directories(rccl PRIVATE ${ROCSHMEM_INCLUDE_DIR})
   target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
+  target_link_libraries(rccl PRIVATE ${IBVERBS})
 
 endif()
 
