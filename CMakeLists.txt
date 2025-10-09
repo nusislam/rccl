@@ -18,9 +18,6 @@ project(rccl CXX)
 
 # rocSHMEM support toggle
 set(ROCSHMEM_ROOT "" CACHE PATH "Path to rocSHMEM install prefix")
-if (WITH_ROCSHMEM)
-  find_package(MPI REQUIRED)
-endif()
 
 # Build options
 #==================================================================================================
@@ -954,14 +951,6 @@ if(HAVE_ROCM_SMI_THREAD_ONLY_MUTEX)
 endif()
 
 # ==== rocSHMEM integration (optional) ====
-if (WITH_ROCSHMEM)
-  target_compile_definitions(rccl PRIVATE ENABLE_ROCSHMEM)
-  # make all sources in this dir see mpi.h
-  include_directories(SYSTEM ${MPI_CXX_INCLUDE_DIRS})
-
-  # Link MPI to rccl
-  target_link_libraries(rccl PRIVATE MPI::MPI_CXX)
-endif()
 
 if (WITH_ROCSHMEM)
   # Find rocSHMEM headers and library
@@ -983,10 +972,6 @@ if (WITH_ROCSHMEM)
   target_include_directories(rccl PRIVATE ${ROCSHMEM_INCLUDE_DIR})
   target_link_libraries(rccl PRIVATE ${ROCSHMEM_LIBRARY})
 
-  find_library(MPI_LIB mpi HINTS $ENV{MPI_ROOT}/lib $ENV{MPI_ROOT}/lib64)
-  if (MPI_LIB)
-    target_link_libraries(rccl PRIVATE ${MPI_LIB})
-  endif()
 endif()
 
 # NPKit flags
