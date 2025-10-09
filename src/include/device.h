@@ -25,6 +25,8 @@
 #include <string>
 #include "debug.h"
 
+#include <rocshmem/rocshmem.hpp>
+
 extern const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2];
 
 extern const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS];
@@ -353,6 +355,11 @@ struct alignas(16) ncclDevWorkColl {
   };
   uint64_t redOpArg;
   uint64_t opCount;
+
+#ifdef ENABLE_ROCSHMEM
+  rocshmem::rocshmem_team_t team;
+  int enableRocshmem;
+#endif
 };
 
 

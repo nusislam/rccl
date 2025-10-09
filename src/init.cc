@@ -2072,7 +2072,22 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
       WARN("Error in rocshmem_init_attr, Aborting.");
       abort();
     }
+   
+    comm->sourceRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
+    comm->destRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
+    comm->enableRocshmem = rcclParamRocshmemEnabled();
+
+    printf("rocshmem malloc done %d\n", job->nranks);
     
+    //rocshmem::rocshmem_team_t team_reduce_world_dup;
+    comm->team_reduce_world_dup = rocshmem::ROCSHMEM_TEAM_INVALID;
+    rocshmem::rocshmem_team_split_strided(rocshmem::ROCSHMEM_TEAM_WORLD, 0, 1, job->nranks, nullptr, 0,
+                               &(comm->team_reduce_world_dup));
+
+    printf("rocshmem team done %d\n", job->nranks);
+
+    CUDACHECK(hipDeviceSynchronize());
+ 
     rocshmem::rocshmem_finalize();
   }
 #endif

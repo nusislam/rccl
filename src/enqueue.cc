@@ -385,6 +385,12 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     devWork.redOpArgIsPtr = task->opDev.scalarArgIsPtr;
     devWork.oneNode = (comm->nNodes == 1);
     devWork.rcclUseOneSlice = comm->rcclUseOneSlice;
+#ifdef ENABLE_ROCSHMEM
+    if (comm->enableRocshmem) {
+	devWork.enableRocshmem = comm->enableRocshmem;
+	devWork.team = comm->team_reduce_world_dup;
+    }
+#endif    
 
     devWork.isOneRPN = comm->isOneRPN;
     devWork.netRegUsed = devWork.regUsed = 0;
