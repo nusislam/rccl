@@ -100,7 +100,7 @@ static ncclResult_t commReclaim(ncclComm_t comm);
 
 
 #ifdef ENABLE_ROCSHMEM
-RCCL_PARAM(RocshmemThrehsold, "ROCSHMEM_THRESOLD", (size_t)(1024*1024));
+RCCL_PARAM(RocshmemThreshold, "ROCSHMEM_THRESOLD", (size_t)(1024*1024));
 RCCL_PARAM(RocshmemEnabled, "ROCSHMEM_ENABLE", 1); // @TODO - unable to disable this at runtime
 #endif
 
@@ -2046,13 +2046,15 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
 
 #ifdef ENABLE_ROCSHMEM
   /* --- sanity-check print statement for development purposes --- */
-  printf("Initializing rocSHMEM inside of RCCL\n");
   if (rcclParamRocshmemEnabled()) { // @TODO - This doesn't seem to disable when I set ROCSHMEM_ENABLE=0 on command line
+    printf("Initializing rocSHMEM inside of RCCL nranks = %d, myrabk = %d\n", comm->nRanks, comm->rank);
+
     int ret;
     rocshmem::rocshmem_uniqueid_t rocshmemUniqueId;
     rocshmem::rocshmem_init_attr_t rocshmemAttr;
 
-    if(comm->localRank == 0 ) {
+    //if(comm->localRank == 0 ) {
+    if(comm->rank == 0 ) {
       ret = rocshmem::rocshmem_get_uniqueid (&rocshmemUniqueId);
       if (ret != rocshmem::ROCSHMEM_SUCCESS) {
         WARN("Error in rocshmem_get_uniqueid, Aborting.");
@@ -2060,7 +2062,9 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
       }
     }
   
-    NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);
+    /*NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);*/
+    NCCLCHECKGOTO(bootstrapBroadcast(comm->bootstrap, comm->rank, comm->nRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);
+
     ret = rocshmem::rocshmem_set_attr_uniqueid_args(job->myrank, job->nranks, &rocshmemUniqueId, &rocshmemAttr);
     if (ret != rocshmem::ROCSHMEM_SUCCESS) {
       WARN("Error in rocshmem_set_attr_uniqueid_args, Aborting.");
@@ -2076,6 +2080,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     comm->sourceRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
     comm->destRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
     comm->enableRocshmem = rcclParamRocshmemEnabled();
+    comm->rocshmemThreshold = rcclParamRocshmemThreshold();
 
     printf("rocshmem malloc done %d\n", job->nranks);
     
@@ -2088,7 +2093,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
 
     CUDACHECK(hipDeviceSynchronize());
  
-    rocshmem::rocshmem_finalize();
+    //rocshmem::rocshmem_finalize();
   }
 #endif
 
@@ -2923,6 +2928,11 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
   }
 #endif
 
+#ifdef ENABLE_ROCSHMEM
+  if (comm->enableRocshmem) {
+     rocshmem::rocshmem_finalize();
+  }
+#endif
   int rank = comm->rank, nranks = comm->nRanks, cudaDev = comm->cudaDev;
   struct ncclCommFinalizeAsyncJob *job = NULL;
   ncclResult_t res = ncclSuccess;

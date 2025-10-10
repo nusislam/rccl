@@ -202,14 +202,16 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
     NCCLCHECK(Recorder::instance().record(rrAllToAll, sendbuff, recvbuff, count, datatype, comm, stream));
   }
 
-  if (mscclAvailable(comm) && !mscclIsCaller()) {
+  /*if (mscclAvailable(comm) && !mscclIsCaller()) {
     return mscclEnqueueCheck(
       sendbuff, nullptr, nullptr, recvbuff, nullptr, nullptr,
       count, datatype, 0, 0, ncclSum, mscclFuncAllToAll, comm, stream);
-  }
+  }*/
 
   size_t rankOffset = count * ncclTypeSize(datatype);
   size_t rankAlign = rankOffset & ((~rankOffset) + 1);
+  size_t msgSize = count * ncclTypeSize(datatype) * comm->nRanks;
+
   // Determine Pivot A2A support now that we know number of channels
   if (comm->topo->pivotA2AEnabled && comm->nChannels >= comm->topo->pivotA2ANumBiRings * 2 &&
       rankOffset >= 744 * 1024 && rankAlign != 4 && rcclParamAllToAllPivotEnable()) {
@@ -218,6 +220,18 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
       ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
     return ncclEnqueueCheck(&info);
   } else {
+#ifdef ENABLE_ROCSHMEM
+    if (comm->enableRocshmem && msgSize <= comm->rocshmemThreshold) {
+	hipMemcpy(comm->sourceRshmem, ((char*)sendbuff), msgSize, hipMemcpyDeviceToDevice);
+	hipMemcpy(comm->destRshmem, ((char*)recvbuff), msgSize, hipMemcpyDeviceToDevice);    
+
+	struct ncclInfo info = { ncclFuncAllToAllPivot, "AllToAllPivot",
+      	sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream, 
+      	ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
+
+    	return ncclEnqueueCheck(&info);
+    }
+#endif
     int nRanks;
     NCCLCHECK(ncclCommCount(comm, &nRanks));
     if (count == 0) return ncclSuccess;

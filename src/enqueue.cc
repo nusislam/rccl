@@ -387,8 +387,11 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     devWork.rcclUseOneSlice = comm->rcclUseOneSlice;
 #ifdef ENABLE_ROCSHMEM
     if (comm->enableRocshmem) {
+	//printf("Populating devwork with rocShmem\n");    
 	devWork.enableRocshmem = comm->enableRocshmem;
 	devWork.team = comm->team_reduce_world_dup;
+	devWork.sendbuff = (void*)comm->sourceRshmem;
+    	devWork.recvbuff = (void*)comm->destRshmem;
     }
 #endif    
 

@@ -7,6 +7,7 @@
 #include "device.h"
 #include "collectives.h"
 #include "primitives.h"
+#include <rocshmem/rocshmem.hpp>
 
 namespace {
   template<typename T, typename RedOp, typename Proto>
@@ -78,6 +79,22 @@ template<typename T, typename RedOp>
 struct RunWorkColl<ncclFuncAllToAllPivot, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
   __device__ __forceinline__ void run(int tid, int nThreads, struct ncclDevWorkColl* work) {
     using Proto = ProtoSimple<ALLTOALL_PIVOT_CHUNKSTEPS/ALLTOALL_PIVOT_SLICESTEPS, ALLTOALL_PIVOT_SLICESTEPS>;
-    runRing<T, RedOp, Proto>(tid, nThreads, work);
+    if (work->enableRocshmem) {
+	__shared__ rocshmem::rocshmem_ctx_t ctx;
+    	int64_t ctx_type = 0;
+
+    	rocshmem::rocshmem_wg_ctx_create(ctx_type, &ctx);
+    	int num_pes = rocshmem::rocshmem_ctx_n_pes(ctx);
+	//printf("rocShmem alltoall enabled %d\n", num_pes);
+
+    	/*rocshmem_ctx_int_alltoall_wg(ctx, team, dest, source, nelem);
+
+    	rocshmem_ctx_quiet(ctx);
+    	__syncthreads();
+
+    	rocshmem_wg_ctx_destroy(&ctx);*/
+    } else {
+    	runRing<T, RedOp, Proto>(tid, nThreads, work);
+    }
   }
 };

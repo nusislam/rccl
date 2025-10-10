@@ -725,6 +725,7 @@ struct ncclComm {
   void* destRshmem;
   rocshmem::rocshmem_team_t team_reduce_world_dup;
   int enableRocshmem;
+  int rocshmemThreshold;
 #endif
 
   uint64_t endMagic;
