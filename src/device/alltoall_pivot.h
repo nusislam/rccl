@@ -85,14 +85,21 @@ struct RunWorkColl<ncclFuncAllToAllPivot, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_S
 
     	rocshmem::rocshmem_wg_ctx_create(ctx_type, &ctx);
     	int num_pes = rocshmem::rocshmem_ctx_n_pes(ctx);
-	//printf("rocShmem alltoall enabled %d\n", num_pes);
 
-    	/*rocshmem_ctx_int_alltoall_wg(ctx, team, dest, source, nelem);
+    	rocshmem_ctx_char_alltoall_wg(ctx, work->team, ((char*)work->tempbuff), ((char*)work->sendbuff), work->size);
 
     	rocshmem_ctx_quiet(ctx);
     	__syncthreads();
 
-    	rocshmem_wg_ctx_destroy(&ctx);*/
+	/*if (tid == 0) {
+		printf("rocShmem alltoall back %d\n", num_pes);
+	}*/
+
+    	rocshmem_wg_ctx_destroy(&ctx);
+
+	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
+            tid, nThreads, 0, nullptr, false, 1, (void **)&work->tempbuff, 1, (void **)&work->rcvbuff, (work->size*num_pes));
+
     } else {
     	runRing<T, RedOp, Proto>(tid, nThreads, work);
     }

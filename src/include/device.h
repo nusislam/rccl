@@ -359,6 +359,9 @@ struct alignas(16) ncclDevWorkColl {
 #ifdef ENABLE_ROCSHMEM
   rocshmem::rocshmem_team_t team;
   int enableRocshmem;
+  void* tempbuff;
+  void* rcvbuff;
+  int size;	  
 #endif
 };
 

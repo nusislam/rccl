@@ -2043,11 +2043,12 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
 
   // RCCL: determine and set unroll factor for comm
   NCCLCHECK(commSetUnrollFactor(comm));
+  comm->isA2a = 0;
 
 #ifdef ENABLE_ROCSHMEM
   /* --- sanity-check print statement for development purposes --- */
   if (rcclParamRocshmemEnabled()) { // @TODO - This doesn't seem to disable when I set ROCSHMEM_ENABLE=0 on command line
-    printf("Initializing rocSHMEM inside of RCCL nranks = %d, myrabk = %d\n", comm->nRanks, comm->rank);
+    //printf("Initializing rocSHMEM inside of RCCL nranks = %d, myrabk = %d\n", comm->nRanks, comm->rank);
 
     int ret;
     rocshmem::rocshmem_uniqueid_t rocshmemUniqueId;
@@ -2082,14 +2083,14 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     comm->enableRocshmem = rcclParamRocshmemEnabled();
     comm->rocshmemThreshold = rcclParamRocshmemThreshold();
 
-    printf("rocshmem malloc done %d\n", job->nranks);
+    //printf("rocshmem malloc done %d\n", job->nranks);
     
     //rocshmem::rocshmem_team_t team_reduce_world_dup;
     comm->team_reduce_world_dup = rocshmem::ROCSHMEM_TEAM_INVALID;
     rocshmem::rocshmem_team_split_strided(rocshmem::ROCSHMEM_TEAM_WORLD, 0, 1, job->nranks, nullptr, 0,
                                &(comm->team_reduce_world_dup));
 
-    printf("rocshmem team done %d\n", job->nranks);
+    //printf("rocshmem team done %d\n", job->nranks);
 
     CUDACHECK(hipDeviceSynchronize());
  
@@ -2905,6 +2906,7 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
   }
   INFO(NCCL_INIT, "Memory used = %ld", allocTracker[comm->cudaDev].totalAllocSize);
 
+
 #ifdef ENABLE_MSCCLPP
   if (comm->mscclppCompatible) {
     auto& mscclppUniqueId = mscclpp_commToUniqueIdMap[comm->mscclpp_comm];
@@ -2930,7 +2932,11 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
 
 #ifdef ENABLE_ROCSHMEM
   if (comm->enableRocshmem) {
+     rocshmem::rocshmem_free(comm->sourceRshmem);
+     rocshmem::rocshmem_free(comm->destRshmem);
      rocshmem::rocshmem_finalize();
+     if (comm->isA2a == 1)
+     	return ncclSuccess;
   }
 #endif
   int rank = comm->rank, nranks = comm->nRanks, cudaDev = comm->cudaDev;
@@ -2941,6 +2947,9 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
     NVTX3_PAYLOAD(comm->commHash, nranks, rank, cudaDev));
 
   TRACE(NCCL_INIT, "comm %p rank %d nRanks %d cudaDev %d busId %lx", comm, rank, nranks, cudaDev, comm->busId);
+  printf("In comm destroy %d\n", comm->rank);
+
+//#ifndef ENABLE_ROCSHMEM
   NCCLCHECK(ncclGroupStartInternal());
   // Try and prevent a double free of the comm struct (user error)
   if (comm->rank == -1 || comm->nRanks == -1 || comm->cudaDev == -1 || comm->busId == -1) {
@@ -2949,6 +2958,7 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
   }
 
   comm->destroyFlag = 1;
+
   /* init thread must be joined before we destroy the comm. */
   NCCLCHECK(ncclCommEnsureReady(comm));
   NCCLCHECKGOTO(ncclCalloc(&job, 1), res, fail);
@@ -2959,6 +2969,7 @@ exit:
   ncclGroupErrCheck(res);
   NCCLCHECK(ncclGroupEndInternal());
   return res;
+//#endif  
 fail:
   goto exit;
 }

@@ -386,12 +386,15 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     devWork.oneNode = (comm->nNodes == 1);
     devWork.rcclUseOneSlice = comm->rcclUseOneSlice;
 #ifdef ENABLE_ROCSHMEM
-    if (comm->enableRocshmem) {
-	//printf("Populating devwork with rocShmem\n");    
+    if (comm->enableRocshmem && (comm->isA2a == 1)) {
 	devWork.enableRocshmem = comm->enableRocshmem;
 	devWork.team = comm->team_reduce_world_dup;
+	
 	devWork.sendbuff = (void*)comm->sourceRshmem;
-    	devWork.recvbuff = (void*)comm->destRshmem;
+    	devWork.tempbuff = (void*)comm->destRshmem;
+	devWork.rcvbuff = (void*)comm->rcvbuff;
+	devWork.size = comm->a2aSize;
+	//printf("Size per rank = %zu\n", devWork.size);    
     }
 #endif    
 
@@ -1742,6 +1745,13 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   void* sym = plan->kernelFn;
   dim3 grid = {(unsigned)nChannels, 1, 1};
   dim3 block = {(unsigned)plan->threadPerBlock, 1, 1};
+#ifdef ENABLE_ROCSHMEM
+    if (comm->enableRocshmem && (comm->isA2a == 1) ) {
+	grid = 1;
+	block = 256;
+	//printf("Modify gridsize\n");
+    }
+#endif
   int smem = rcclShmemDynamicSize(comm->cudaArch, comm->WarpSize);
   cudaStream_t launchStream = planner->streams->stream;
   void* extra[] = {plan->kernelArgs, &plan->kernelArgsSize};
@@ -1750,8 +1760,10 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   if (planner->numStreams == 1 && !plan->persistent) {
     latency_profiler::collTraceRecordStartEvent(comm, launchStream, event.get());
     comm->lastStream = planner->streams->stream;
+    //printf("Launching %d\n", comm->rank);
     CUDACHECKGOTO(hipExtLaunchKernel(plan->kernelFn, grid, block, extra, 0, launchStream, NULL, comm->doneEvent, 0), ret, do_return);
     latency_profiler::collTraceRecordEndEvent(comm, plan, launchStream, std::move(event));
+    //printf("Back %d\n", comm->rank);
     return ncclSuccess;
   }
 
