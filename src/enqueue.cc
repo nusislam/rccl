@@ -390,9 +390,11 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
 	devWork.enableRocshmem = comm->enableRocshmem;
 	devWork.team = comm->team_reduce_world_dup;
 	
-	devWork.sendbuff = (void*)comm->sourceRshmem;
+	//devWork.sendbuff = (void*)comm->sourceRshmem;
+	devWork.sndbuff = (void*)comm->sourceRshmem;
+
     	devWork.tempbuff = (void*)comm->destRshmem;
-	devWork.rcvbuff = (void*)comm->rcvbuff;
+	//devWork.rcvbuff = (void*)comm->rcvbuff;
 	devWork.size = comm->a2aSize;
 	//printf("Size per rank = %zu\n", devWork.size);    
     }
@@ -1994,7 +1996,7 @@ static ncclResult_t updateCollCostTable(
     float** collCostTable) {
   float (*table)[NCCL_NUM_PROTOCOLS] = (float (*)[NCCL_NUM_PROTOCOLS])collCostTable;
 
-  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot) {
+  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot || info->func == ncclFuncAllToAllGda) {
     table[NCCL_ALGO_RING][NCCL_PROTO_SIMPLE] = 0.0;
     return ncclSuccess;
   }
@@ -2243,6 +2245,9 @@ static ncclResult_t calcCollChunking(
       ncclPatternRing;
     break;
   case ncclFuncAllToAllPivot:
+    pattern = ncclPatternRing;
+    break;
+  case ncclFuncAllToAllGda:
     pattern = ncclPatternRing;
     break;
   case ncclFuncAllReduce:
@@ -2666,7 +2671,7 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
       t->root = info->root;
       t->datatype = info->datatype;
       size_t elementSize = ncclTypeSize(t->datatype);
-      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot) {
+      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot || t->func == ncclFuncAllToAllGda) {
         t->count *= elementSize;
         t->datatype = ncclInt8;
         elementSize = 1;

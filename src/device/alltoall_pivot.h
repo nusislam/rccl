@@ -7,7 +7,6 @@
 #include "device.h"
 #include "collectives.h"
 #include "primitives.h"
-#include <rocshmem/rocshmem.hpp>
 
 namespace {
   template<typename T, typename RedOp, typename Proto>
@@ -79,29 +78,6 @@ template<typename T, typename RedOp>
 struct RunWorkColl<ncclFuncAllToAllPivot, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
   __device__ __forceinline__ void run(int tid, int nThreads, struct ncclDevWorkColl* work) {
     using Proto = ProtoSimple<ALLTOALL_PIVOT_CHUNKSTEPS/ALLTOALL_PIVOT_SLICESTEPS, ALLTOALL_PIVOT_SLICESTEPS>;
-    if (work->enableRocshmem) {
-	__shared__ rocshmem::rocshmem_ctx_t ctx;
-    	int64_t ctx_type = 0;
-
-    	rocshmem::rocshmem_wg_ctx_create(ctx_type, &ctx);
-    	int num_pes = rocshmem::rocshmem_ctx_n_pes(ctx);
-
-    	rocshmem_ctx_char_alltoall_wg(ctx, work->team, ((char*)work->tempbuff), ((char*)work->sendbuff), work->size);
-
-    	rocshmem_ctx_quiet(ctx);
-    	__syncthreads();
-
-	/*if (tid == 0) {
-		printf("rocShmem alltoall back %d\n", num_pes);
-	}*/
-
-    	rocshmem_wg_ctx_destroy(&ctx);
-
-	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
-            tid, nThreads, 0, nullptr, false, 1, (void **)&work->tempbuff, 1, (void **)&work->rcvbuff, (work->size*num_pes));
-
-    } else {
-    	runRing<T, RedOp, Proto>(tid, nThreads, work);
-    }
+    runRing<T, RedOp, Proto>(tid, nThreads, work);
   }
 };

@@ -222,17 +222,13 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
   } else {
 #ifdef ENABLE_ROCSHMEM
     if (comm->enableRocshmem && msgSize <= comm->rocshmemThreshold) {
-	hipMemcpy(comm->sourceRshmem, ((char*)sendbuff), msgSize, hipMemcpyDeviceToDevice);
-	//hipMemcpy(comm->destRshmem, ((char*)recvbuff), msgSize, hipMemcpyDeviceToDevice);    
-
 	comm->a2aSize = count * ncclTypeSize(datatype);
 	comm->rcvbuff = recvbuff;
 	comm->isA2a = 1;
 
-	struct ncclInfo info = { ncclFuncAllToAllPivot, "AllToAllPivot",
+	struct ncclInfo info = { ncclFuncAllToAllGda, "AllToAllGda",
       	sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream, 
       	ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
-
 
     	return ncclEnqueueCheck(&info);
     }
