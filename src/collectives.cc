@@ -221,8 +221,9 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
     return ncclEnqueueCheck(&info);
   } else {
 #ifdef ENABLE_ROCSHMEM
+    comm->a2aSize = count * ncclTypeSize(datatype);
+
     if (comm->enableRocshmem && msgSize <= comm->rocshmemThreshold) {
-	comm->a2aSize = count * ncclTypeSize(datatype);
 	comm->rcvbuff = recvbuff;
 	comm->isA2a = 1;
 

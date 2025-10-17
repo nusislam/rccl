@@ -1748,7 +1748,7 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   dim3 grid = {(unsigned)nChannels, 1, 1};
   dim3 block = {(unsigned)plan->threadPerBlock, 1, 1};
 #ifdef ENABLE_ROCSHMEM
-    if (comm->enableRocshmem && (comm->isA2a == 1) ) {
+    if (comm->enableRocshmem && (comm->isA2a == 1) && ((comm->a2aSize * comm->nRanks) <= comm->rocshmemThreshold)) {
 	grid = 1;
 	block = 256;
 	//printf("Modify gridsize\n");

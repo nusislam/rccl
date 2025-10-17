@@ -100,7 +100,7 @@ static ncclResult_t commReclaim(ncclComm_t comm);
 
 
 #ifdef ENABLE_ROCSHMEM
-RCCL_PARAM(RocshmemThreshold, "ROCSHMEM_THRESOLD", (size_t)(1024*1024));
+RCCL_PARAM(RocshmemThreshold, "ROCSHMEM_THRESOLD", (size_t)(4*1024*1024));
 RCCL_PARAM(RocshmemEnabled, "ROCSHMEM_ENABLE", 1); // @TODO - unable to disable this at runtime
 #endif
 
