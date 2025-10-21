@@ -56,7 +56,9 @@
 #include "rccl_common.h"
 // [/RCCL]
 
+#ifdef ENABLE_ROCSHMEM
 #include <rocshmem/rocshmem.hpp>
+#endif
 
 #include "msccl/msccl_lifecycle.h"
 #include "msccl/msccl_status.h"
@@ -79,7 +81,7 @@
 
 using namespace rccl;
 
-const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+2] = { "AllGather", "AllReduce", "AllToAllPivot", "Broadcast", "Reduce", "ReduceScatter", "SendRecv"};
+const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+3] = { "AllGather", "AllReduce", "AllToAllPivot", "AllToAllGda", "Broadcast", "Reduce", "ReduceScatter", "SendRecv"};
 const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS] = { "Tree", "Ring", "CollNetDirect", "CollNetChain", "NVLS", "NVLSTree", "PAT" };
 const char* ncclProtoStr[NCCL_NUM_PROTOCOLS] = { "LL", "LL128", "Simple" };
 const char* ncclDevRedOpStr[ncclNumDevRedOps] = { "Sum", "Prod", "MinMax", "PreMulSum", "SumPostDiv" };
@@ -100,7 +102,7 @@ static ncclResult_t commReclaim(ncclComm_t comm);
 
 
 #ifdef ENABLE_ROCSHMEM
-RCCL_PARAM(RocshmemThrehsold, "ROCSHMEM_THRESOLD", (size_t)(1024*1024));
+RCCL_PARAM(RocshmemThreshold, "ROCSHMEM_THRESHOLD", (size_t)(4*1024*1024));
 RCCL_PARAM(RocshmemEnabled, "ROCSHMEM_ENABLE", 1); // @TODO - unable to disable this at runtime
 #endif
 
@@ -2045,6 +2047,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
   // RCCL: determine and set unroll factor for comm
   NCCLCHECK(commSetUnrollFactor(comm));
 
+  comm->isA2a = 0;
 #ifdef ENABLE_ROCSHMEM
   /* --- sanity-check print statement for development purposes --- */
   printf("Initializing rocSHMEM inside of RCCL\n");
@@ -2053,7 +2056,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     rocshmem::rocshmem_uniqueid_t rocshmemUniqueId;
     rocshmem::rocshmem_init_attr_t rocshmemAttr;
 
-    if(comm->localRank == 0 ) {
+    if(comm->rank == 0 ) {
       ret = rocshmem::rocshmem_get_uniqueid (&rocshmemUniqueId);
       if (ret != rocshmem::ROCSHMEM_SUCCESS) {
         WARN("Error in rocshmem_get_uniqueid, Aborting.");
@@ -2061,7 +2064,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
       }
     }
   
-    NCCLCHECKGOTO(bootstrapIntraNodeBroadcast(comm->bootstrap, comm->localRankToRank, comm->localRank, comm->localRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);
+    NCCLCHECKGOTO(bootstrapBroadcast(comm->bootstrap, comm->rank, comm->nRanks, 0, &rocshmemUniqueId, sizeof(rocshmemUniqueId)), res, fail);
     ret = rocshmem::rocshmem_set_attr_uniqueid_args(job->myrank, job->nranks, &rocshmemUniqueId, &rocshmemAttr);
     if (ret != rocshmem::ROCSHMEM_SUCCESS) {
       WARN("Error in rocshmem_set_attr_uniqueid_args, Aborting.");
@@ -2073,8 +2076,20 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
       WARN("Error in rocshmem_init_attr, Aborting.");
       abort();
     }
-    
-    rocshmem::rocshmem_finalize();
+
+    comm->sourceRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
+    comm->destRshmem = (void *)rocshmem::rocshmem_malloc((size_t)(16*1024*1024));
+    comm->enableRocshmem = rcclParamRocshmemEnabled();
+    comm->rocshmemThreshold = rcclParamRocshmemThreshold();
+
+    //rocshmem::rocshmem_team_t team_reduce_world_dup;
+    comm->team_reduce_world_dup = rocshmem::ROCSHMEM_TEAM_INVALID;
+    rocshmem::rocshmem_team_split_strided(rocshmem::ROCSHMEM_TEAM_WORLD, 0, 1, job->nranks, nullptr, 0,
+                               &(comm->team_reduce_world_dup));
+
+
+    CUDACHECK(hipDeviceSynchronize());
+
   }
 #endif
 
@@ -2909,6 +2924,15 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
   }
 #endif
 
+#ifdef ENABLE_ROCSHMEM
+  if (comm->enableRocshmem) {
+     rocshmem::rocshmem_free(comm->sourceRshmem);
+     rocshmem::rocshmem_free(comm->destRshmem);	  
+     rocshmem::rocshmem_finalize();
+     if (comm->isA2a == 1)
+     	return ncclSuccess;
+  }
+#endif
   int rank = comm->rank, nranks = comm->nRanks, cudaDev = comm->cudaDev;
   struct ncclCommFinalizeAsyncJob *job = NULL;
   ncclResult_t res = ncclSuccess;
