@@ -238,6 +238,7 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
 #endif
     int nRanks;
     NCCLCHECK(ncclCommCount(comm, &nRanks));
+    comm->isA2a = 0;
     if (count == 0) return ncclSuccess;
     if (!mscclIsCaller()) Recorder::instance().skip(true);
     NCCLCHECK(ncclGroupStart());
