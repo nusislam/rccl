@@ -2929,8 +2929,6 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
      rocshmem::rocshmem_free(comm->sourceRshmem);
      rocshmem::rocshmem_free(comm->destRshmem);	  
      rocshmem::rocshmem_finalize();
-     if (comm->isA2a == 1)
-     	return ncclSuccess;
   }
 #endif
   int rank = comm->rank, nranks = comm->nRanks, cudaDev = comm->cudaDev;
