@@ -20,26 +20,25 @@ struct RunWorkColl<ncclFuncAllToAllGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIM
         __shared__ rocshmem::rocshmem_ctx_t ctx;
         int64_t ctx_type = 0;
 
-        /*if (tid == 0) {
-                printf("In GDA kernel\n");
-        }*/
-        rocshmem::rocshmem_wg_ctx_create(ctx_type, &ctx);
-        int num_pes = rocshmem::rocshmem_ctx_n_pes(ctx);
-
-	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
-            tid, nThreads, 0, nullptr, false, 1, (void **)&work->sendbuff, 1, (void **)&work->sndbuff, (work->size*num_pes));
-
 	if (blockIdx.x == 0) {
-        rocshmem_ctx_char_alltoall_wg(ctx, work->team, ((char*)work->tempbuff), ((char*)work->sndbuff), work->size);
 
-        rocshmem_ctx_quiet(ctx);
-        __syncthreads();
+        	rocshmem::rocshmem_wg_ctx_create(ctx_type, &ctx);
+        	int num_pes = rocshmem::rocshmem_ctx_n_pes(ctx);
 
-        rocshmem_wg_ctx_destroy(&ctx);
+		reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
+            		tid, nThreads, 0, nullptr, false, 1, (void **)&work->sendbuff, 1, 
+			(void **)&work->sndbuff, (work->size*num_pes));
 
-        reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
-            tid, nThreads, 0, nullptr, false, 1, (void **)&work->tempbuff, 1, (void **)&work->recvbuff, (work->size*num_pes));
+        	rocshmem_ctx_char_alltoall_wg(ctx, work->team, ((char*)work->tempbuff), ((char*)work->sndbuff), work->size);
+
+        	//rocshmem_ctx_quiet(ctx);
+        	//__syncthreads();
+
+        	rocshmem_wg_ctx_destroy(&ctx);
+
+        	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
+            	tid, nThreads, 0, nullptr, false, 1, (void **)&work->tempbuff, 1, (void **)&work->recvbuff, 
+		(work->size*num_pes));
         }
-
   }
 };
