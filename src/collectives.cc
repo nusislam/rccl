@@ -87,14 +87,15 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
   NVTX3_FUNC_WITH_PARAMS(AllGather, NcclNvtxParamsAllGather,
     NVTX3_PAYLOAD(comm ? comm->commHash : 0, sendcount * ncclTypeSize(datatype), datatype));
 
-  struct ncclInfo info = { ncclFuncAllGather, "AllGather",
-    sendbuff, recvbuff, sendcount, datatype, ncclSum, 0, comm, stream, /* Args */
-    ALLGATHER_CHUNKSTEPS, comm -> rcclUseOneSlice ? ALLGATHER_SLICESTEPS_SINGLE_NODE : ALLGATHER_SLICESTEPS, nullptr };
 
   int nRanks;
   int in_place = 0;
   NCCLCHECK(ncclCommCount(comm, &nRanks));
   size_t msgSize = sendcount * ncclTypeSize(datatype) * nRanks;
+
+  struct ncclInfo info = { ncclFuncAllGather, "AllGather",
+  sendbuff, recvbuff, sendcount, datatype, ncclSum, 0, comm, stream, /* Args */
+  ALLGATHER_CHUNKSTEPS, comm -> rcclUseOneSlice ? ALLGATHER_SLICESTEPS_SINGLE_NODE : ALLGATHER_SLICESTEPS, nullptr };
 
   if (!mscclIsCaller())
   {
@@ -108,6 +109,7 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
   }
 
   if (rcclUseAllGatherDirect(comm, msgSize)) {
+     INFO(NCCL_INIT, "RCCL DIRECT ALLGATHER count = %zu, msgSize = %zu, comm = %p, stream = %p, rank = %d", sendcount, msgSize, comm, stream, comm->rank);	  
      // use direct allgather
      if (sendcount == 0) return ncclSuccess;
      size_t rankOffset = sendcount * ncclTypeSize(datatype);
@@ -117,10 +119,11 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
 
      NCCLCHECK(ncclGroupStart());
      for (int r = 0; r < nRanks; r++) {
-         int peer = (comm->rank + r) % nRanks;
-         if (in_place && (peer == comm->rank)) {
+         //int peer = (comm->rank + r) % nRanks;
+	 int peer = r;
+         /*if (in_place && (peer == comm->rank)) {
             continue;
-         }
+         }*/
          NCCLCHECK(ncclSend(sendbuff, sendcount, datatype, peer, comm, stream));
          NCCLCHECK(ncclRecv(((char*)recvbuff) + peer * rankOffset, sendcount, datatype, peer, comm, stream));
      }
@@ -128,6 +131,7 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
      return ncclSuccess;
   } else {
      // use ring allgather
+
      return ncclEnqueueCheck(&info);
   }
 }
