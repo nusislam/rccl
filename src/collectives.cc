@@ -88,9 +88,12 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
     NVTX3_PAYLOAD(comm ? comm->commHash : 0, sendcount * ncclTypeSize(datatype), datatype));
 
 
-  int nRanks;
+  int nRanks, rank;
   int in_place = 0;
+  const void* srcBuf;
+  void* dstBuf;
   NCCLCHECK(ncclCommCount(comm, &nRanks));
+  NCCLCHECK(ncclCommUserRank(comm, &rank));
   size_t msgSize = sendcount * ncclTypeSize(datatype) * nRanks;
 
   struct ncclInfo info = { ncclFuncAllGather, "AllGather",
@@ -109,29 +112,33 @@ ncclResult_t ncclAllGather_impl(const void* sendbuff, void* recvbuff, size_t sen
   }
 
   if (rcclUseAllGatherDirect(comm, msgSize)) {
-     INFO(NCCL_INIT, "RCCL DIRECT ALLGATHER count = %zu, msgSize = %zu, comm = %p, stream = %p, rank = %d", sendcount, msgSize, comm, stream, comm->rank);	  
+     INFO(NCCL_INIT, "RCCL DIRECT ALLGATHER count = %zu, msgSize = %zu, comm = %p, stream = %p, rank = %d", 
+		     sendcount, msgSize, comm, stream, rank);	  
      // use direct allgather
      if (sendcount == 0) return ncclSuccess;
      size_t rankOffset = sendcount * ncclTypeSize(datatype);
-     if (((char*)sendbuff) == (((char*)recvbuff) + comm->rank * rankOffset)) {
-        in_place = 1;
-     } 
+     if (sendbuff == (((char*)recvbuff) + rank * rankOffset)) {
+        srcBuf = ((char*)recvbuff) + rank * rankOffset;
+	dstBuf = recvbuff;
+     } else {
+	srcBuf = sendbuff;
+	dstBuf = recvbuff;
+     }
 
      NCCLCHECK(ncclGroupStart());
+     CUDACHECK(cudaMemcpyAsync((char*)dstBuf + rank * rankOffset, srcBuf, rankOffset, cudaMemcpyDeviceToDevice, stream));
+
      for (int r = 0; r < nRanks; r++) {
-         //int peer = (comm->rank + r) % nRanks;
-	 int peer = r;
-         /*if (in_place && (peer == comm->rank)) {
-            continue;
-         }*/
-         NCCLCHECK(ncclSend(sendbuff, sendcount, datatype, peer, comm, stream));
-         NCCLCHECK(ncclRecv(((char*)recvbuff) + peer * rankOffset, sendcount, datatype, peer, comm, stream));
+         int peer = (rank + r) % nRanks;
+	 if (peer != rank) {
+             NCCLCHECK(ncclSend(srcBuf, sendcount, datatype, peer, comm, stream));
+             NCCLCHECK(ncclRecv(((char*)dstBuf) + peer * rankOffset, sendcount, datatype, peer, comm, stream));
+	 }
      }
      NCCLCHECK(ncclGroupEnd());
      return ncclSuccess;
   } else {
      // use ring allgather
-
      return ncclEnqueueCheck(&info);
   }
 }
