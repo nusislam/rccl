@@ -283,9 +283,55 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
       sendbuff, sendcounts, sdispls, recvbuff, recvcounts, rdispls,
       0, datatype, 0, 0, ncclSum, mscclFuncAllToAllv, comm, stream);
   }
-
-  int nRanks;
+  int nRanks, rank;
   NCCLCHECK(ncclCommCount(comm, &nRanks));
+  NCCLCHECK(ncclCommUserRank(comm, &rank));
+  
+  size_t sdispls1[nRanks];
+  size_t rdispls1[nRanks];
+  size_t sendcounts1[nRanks];
+  size_t recvcounts1[nRanks];
+
+#ifdef ENABLE_ROCSHMEM
+    if (comm->enableRocshmem) {
+	for (int i = 0; i < nRanks; i++) {
+		sdispls1[i] = sdispls[i] * ncclTypeSize(datatype);
+		rdispls1[i] = rdispls[i] * ncclTypeSize(datatype);
+		sendcounts1[i] = sendcounts[i] * ncclTypeSize(datatype);
+                recvcounts1[i] = recvcounts[i] * ncclTypeSize(datatype);
+	}	
+
+	/*for (int i = 0; i < nRanks; i++) {
+		printf("rank = %d, i = %d, count = %zu\n", rank, i, sendcounts[i]);
+	}*/
+
+	/*hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	hipMemcpyAsync(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	hipMemcpyAsync(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);*/
+
+	hipMemcpy(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+        hipMemcpy(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+        hipMemcpy(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+        hipMemcpy(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+
+	//CUdeviceptr base_address;
+    	//size_t allocated_size;
+
+	//cuMemGetAddressRange(&base_address, &allocated_size, (CUdeviceptr)sendbuff);
+	/*comm->sendDispls = (size_t*)sdispls;
+	comm->recvSizes = (size_t*)recvcounts;
+        comm->recvDispls = (size_t*)rdispls;*/
+	size_t count = sendcounts1[0];
+	//printf("GDA alltoallv %zu\n", count);
+
+        struct ncclInfo info = { ncclFuncAllToAllvGda, "AllToAllvGda",
+        sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,
+        ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
+
+        return ncclEnqueueCheck(&info);
+    }
+#endif
   if (!mscclIsCaller()) Recorder::instance().skip(true);
   NCCLCHECK(ncclGroupStart());
   for (int r=0; r<nRanks; r++) {

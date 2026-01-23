@@ -84,7 +84,7 @@
 
 using namespace rccl;
 
-const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+3] = { "AllGather", "AllReduce", "AllToAllPivot", "AllToAllGda", "Broadcast", "Reduce", "ReduceScatter", "SendRecv"};
+const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+4] = { "AllGather", "AllReduce", "AllToAllPivot", "AllToAllGda", "AllToAllvGda", "Broadcast", "Reduce", "ReduceScatter", "SendRecv"};
 const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS] = { "Tree", "Ring", "CollNetDirect", "CollNetChain", "NVLS", "NVLSTree", "PAT" };
 const char* ncclProtoStr[NCCL_NUM_PROTOCOLS] = { "LL", "LL128", "Simple" };
 const char* ncclDevRedOpStr[ncclNumDevRedOps] = { "Sum", "Prod", "MinMax", "PreMulSum", "SumPostDiv" };
@@ -2156,6 +2156,15 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     	comm->sourceRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(1*1024*1024));
     	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(1*1024*1024));
     }
+
+    comm->sendSizes = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));
+    comm->sendDispls = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));
+
+    /*comm->sendSizes = (size_t*)hipHostMalloc(job->nranks * sizeof(size_t));
+    comm->sendDispls = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));*/
+   
+    comm->recvSizes = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));
+    comm->recvDispls = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));
 
     comm->enableRocshmem = rcclParamRocshmemEnabled();
     comm->rocshmemThreshold = rcclParamRocshmemThreshold();

@@ -5,7 +5,7 @@ import subprocess
 from dataclasses import dataclass
 
 # Order of colls, redops, tys, protos, algos must match src/include/device.h
-all_colls     = ["Broadcast", "Reduce", "AllGather", "ReduceScatter", "AllReduce", "SendRecv", "", "", "AllToAllPivot", "AllToAllGda"]
+all_colls     = ["Broadcast", "Reduce", "AllGather", "ReduceScatter", "AllReduce", "SendRecv", "", "", "AllToAllPivot", "AllToAllGda", "AllToAllvGda"]
 all_redops    = ["Sum","Prod","MinMax","PreMulSum","SumPostDiv"]
 all_tys       = ["i8","u8","i32","u32","i64","u64","f16","f32","f64","bf16","f8e4m3","f8e5m2"]
 all_protos    = ["LL","LL128","SIMPLE"]
@@ -79,7 +79,7 @@ func_pattern = sys.argv[6:7]
 if func_pattern and func_pattern[0]:
   func_pattern = func_pattern[0]
 else:
-  func_pattern = "AllGather|AllReduce|AllToAllPivot|AllToAllGda|Broadcast|Reduce|ReduceScatter|SendRecv"
+  func_pattern = "AllGather|AllReduce|AllToAllPivot|AllToAllGda|AllToAllvGda|Broadcast|Reduce|ReduceScatter|SendRecv"
 
 ################################################################################
 
@@ -88,6 +88,7 @@ algos_of_coll = {
   "AllReduce":             ["RING", "TREE"],
   "AllToAllPivot":         ["RING"],
   "AllToAllGda":           ["RING"],
+  "AllToAllvGda":          ["RING"],
   "Broadcast":             ["RING"],
   "Reduce":                ["RING"],
   "ReduceScatter":         ["RING", "PAT"],
@@ -99,6 +100,7 @@ protos_of_coll = {
   "AllReduce":              all_protos,
   "AllToAllPivot":          ["SIMPLE"],
   "AllToAllGda":            ["SIMPLE"],
+  "AllToAllvGda":           ["SIMPLE"],
   "Broadcast":              all_protos,
   "Reduce":                 all_protos,
   "ReduceScatter":          all_protos,
@@ -110,6 +112,7 @@ redops_of_coll = {
   "AllReduce":            all_redops,
   "AllToAllPivot":        ["Sum"],
   "AllToAllGda":          ["Sum"],
+  "AllToAllvGda":         ["Sum"],
   "Broadcast":            ["Sum"],
   "Reduce":               all_redops,
   "ReduceScatter":        all_redops,
@@ -121,6 +124,7 @@ tys_of_coll = {
   "AllReduce":             all_tys,
   "AllToAllPivot":         ["i8"],
   "AllToAllGda":           ["i8"],
+  "AllToAllvGda":          ["i8"],
   "Broadcast":             ["i8"],
   "Reduce":                all_tys,
   "ReduceScatter":         all_tys,
@@ -132,6 +136,7 @@ acc_of_coll = {
   "AllReduce":             all_accs,
   "AllToAllPivot":         ["0"],
   "AllToAllGda":           ["0"],
+  "AllToAllvGda":          ["0"],
   "Broadcast":             ["0"],
   "Reduce":                ["0"],
   "ReduceScatter":         ["0"],
@@ -143,6 +148,7 @@ pipelines_of_coll = {
   "AllReduce":             all_pipelines,
   "AllToAllPivot":         ["0"],
   "AllToAllGda":           ["0"],
+  "AllToAllvGda":          ["0"],
   "Broadcast":             ["0"],
   "Reduce":                all_pipelines,
   "ReduceScatter":         all_pipelines,
@@ -155,6 +161,7 @@ coll_camel_to_lower = {
   "AllReduce":             "all_reduce",
   "AllToAllPivot":         "alltoall_pivot",
   "AllToAllGda":           "alltoall_gda",
+  "AllToAllvGda":          "alltoallv_gda",
   "Broadcast":             "broadcast",
   "Reduce":                "reduce",
   "ReduceScatter":         "reduce_scatter",
@@ -510,7 +517,7 @@ with open(os.path.join(gensrc, "host_table.cpp"), "w") as f:
       )
       if fn.coll == "Broadcast":
         key = ((coll_idx & 0x3F) | ((proto_idx & 0x3F) << 8))
-      if fn.coll in ["SendRecv", "AllToAllPivot", "AllToAllGda"]:
+      if fn.coll in ["SendRecv", "AllToAllPivot", "AllToAllGda", "AllToAllvGda"]:
         key = ((coll_idx & 0x3F))
       
       out(f'  {{{key}, {fn_id}}}, {comment}\n')

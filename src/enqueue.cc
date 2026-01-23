@@ -397,7 +397,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     //[Added-comment] opCount is missing for collDevWork, adding here
     devWork.opCount = task->opCount;
 #ifdef ENABLE_ROCSHMEM
-    if (comm->enableRocshmem && task->func == ncclFuncAllToAllGda) {
+    if (comm->enableRocshmem && (task->func == ncclFuncAllToAllGda || task->func == ncclFuncAllToAllvGda)) {
         devWork.enableRocshmem = comm->enableRocshmem;
         devWork.team = comm->team_reduce_world_dup;
 
@@ -406,7 +406,16 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
 
         comm->symId = (comm->symId + 1) % comm->numSymBuf;
 
+	//if (task->func == ncclFuncAllToAllGda) 
         devWork.size = task->count;
+	if (task->func == ncclFuncAllToAllvGda) {
+	    devWork.rank = comm->rank;
+	    //printf("Size = %zu\n", devWork.size);		
+	    devWork.sendSizes = comm->sendSizes;
+    	    devWork.sendDispls = comm->sendDispls;
+	    devWork.recvSizes = comm->recvSizes;
+            devWork.recvDispls = comm->recvDispls; 
+	}		
     }
 #endif
 
@@ -749,7 +758,7 @@ static ncclResult_t scheduleCollTasksToPlan(
         proxyOp.incWorkCounter = true;
         addWorkBatchToPlan(comm, plan, c, workNode->workType, task->devFuncId, plan->workBytes);
         // Set pattern to profiler to add a proxy profiler for kernel events
-        if (task->func != ncclFuncAllToAllGda) {
+        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda) {
             NCCLCHECK(addProxyOpIfNeeded(comm, plan, &proxyOp));
             NCCLCHECK(addProfilerProxyOpIfNeeded(comm, plan, &proxyOp));
 	}
@@ -898,7 +907,7 @@ static ncclResult_t scheduleCollTasksToPlan(
         // Coverity reports "proxyOp->connection" as being possibly uninitialized.  It's hard to
         // determine if that's actually true but it's also not clear if that would be an issue.
         // coverity[uninit_use_in_call:FALSE]
-        if (task->func != ncclFuncAllToAllGda) {
+        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda) {
             NCCLCHECK(addProxyOpIfNeeded(comm, plan, proxyOp));
             NCCLCHECK(addProfilerProxyOpIfNeeded(comm, plan, proxyOp));
         }
@@ -2047,7 +2056,7 @@ static ncclResult_t updateCollCostTable(
     float** collCostTable) {
   float (*table)[NCCL_NUM_PROTOCOLS] = (float (*)[NCCL_NUM_PROTOCOLS])collCostTable;
 
-  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot || info->func == ncclFuncAllToAllGda) {
+  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot || info->func == ncclFuncAllToAllGda || info->func == ncclFuncAllToAllvGda) {
     table[NCCL_ALGO_RING][NCCL_PROTO_SIMPLE] = 0.0;
     return ncclSuccess;
   }
@@ -2354,6 +2363,9 @@ static ncclResult_t calcCollChunking(
   case ncclFuncAllToAllGda:
     pattern = ncclPatternRing;
     break;
+  case ncclFuncAllToAllvGda:
+    pattern = ncclPatternRing;
+    break;  
   case ncclFuncAllReduce:
     pattern =
       info->algorithm == NCCL_ALGO_NVLS ? ncclPatternNvls :
@@ -2776,7 +2788,7 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
       t->root = info->root;
       t->datatype = info->datatype;
       size_t elementSize = ncclTypeSize(t->datatype);
-      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot || t->func == ncclFuncAllToAllGda) {
+      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot || t->func == ncclFuncAllToAllGda || t->func == ncclFuncAllToAllvGda) {
         t->count *= elementSize;
         t->datatype = ncclInt8;
         elementSize = 1;
@@ -2844,6 +2856,10 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
         info->comm->planner.nTasksP2p + info->comm->planner.nTasksColl,
         info->comm->localRankToRank[info->comm->localRank]);
   TRACE_CALL("nccl%s(%" PRIx64 ",%" PRIx64 ",%zu,%d,%d,%d,%p,%p)", info->opName, reinterpret_cast<int64_t>(info->sendbuff), reinterpret_cast<int64_t>(info->recvbuff), info->count, info->datatype, info->op, info->root, info->comm, info->stream);
+
+  /*for (int i = 0; i < info->comm->nRanks; i++) {
+	printf("count i = %d, %zu\n", i, info->comm->sendSizes[i]);
+  }*/
 
   NCCLCHECKGOTO(taskAppend(info->comm, info), ret, fail);
 

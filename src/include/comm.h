@@ -738,6 +738,10 @@ struct ncclComm {
   int rocshmemThreshold;
   int numSymBuf;
   int symId;
+  size_t* sendSizes;
+  size_t* sendDispls;
+  size_t* recvSizes;
+  size_t* recvDispls;
 #endif
 
   uint64_t endMagic;
