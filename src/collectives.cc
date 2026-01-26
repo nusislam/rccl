@@ -302,18 +302,18 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 	}	
 
 	/*for (int i = 0; i < nRanks; i++) {
-		printf("rank = %d, i = %d, count = %zu\n", rank, i, sendcounts[i]);
+		printf("H recvSize = %zu, rdisps = %zu, i = %d, rank = %d\n", recvcounts1[i], rdispls1[i], i, rank);
 	}*/
 
-	/*hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 	hipMemcpyAsync(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 	hipMemcpyAsync(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);*/
+	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 
-	hipMemcpy(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+	/*hipMemcpy(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
         hipMemcpy(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
         hipMemcpy(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
-        hipMemcpy(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
+        hipMemcpy(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);*/
 
 	//CUdeviceptr base_address;
     	//size_t allocated_size;
@@ -322,8 +322,15 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 	/*comm->sendDispls = (size_t*)sdispls;
 	comm->recvSizes = (size_t*)recvcounts;
         comm->recvDispls = (size_t*)rdispls;*/
-	size_t count = sendcounts1[0];
-	//printf("GDA alltoallv %zu\n", count);
+	
+	//printf("GDA alltoallv size = %zu\n", (sdispls1[nRanks - 1] + sendcounts1[nRanks - 1]));
+
+	size_t count = sdispls1[nRanks - 1] + sendcounts1[nRanks - 1];
+	/*float *p = (float*) sendbuff;
+	for (int i = 0; i < 8; i++) {
+		printf("H data = %f\n", p[i]);
+	}*/
+
 
         struct ncclInfo info = { ncclFuncAllToAllvGda, "AllToAllvGda",
         sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,
