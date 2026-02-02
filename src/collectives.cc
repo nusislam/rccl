@@ -292,6 +292,8 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
   size_t sendcounts1[nRanks];
   size_t recvcounts1[nRanks];
 
+  size_t sizes[4*nRanks];
+
 #ifdef ENABLE_ROCSHMEM
     if (comm->enableRocshmem) {
 	for (int i = 0; i < nRanks; i++) {
@@ -299,7 +301,14 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 		rdispls1[i] = rdispls[i] * ncclTypeSize(datatype);
 		sendcounts1[i] = sendcounts[i] * ncclTypeSize(datatype);
                 recvcounts1[i] = recvcounts[i] * ncclTypeSize(datatype);
-	}	
+	}
+	/*for (int i = 0; i < nRanks; i++) {
+		sizes[i] = sendcounts1[i];
+		sizes[nRanks + i] = sdispls1[i];
+		sizes[2*nRanks + i] = recvcounts1[i];
+                sizes[3*nRanks + i] = rdispls1[i];
+	}*/	
+
 
 	/*for (int i = 0; i < nRanks; i++) {
 		printf("H recvSize = %zu, rdisps = %zu, i = %d, rank = %d\n", recvcounts1[i], rdispls1[i], i, rank);
@@ -323,14 +332,17 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 	comm->recvSizes = (size_t*)recvcounts;
         comm->recvDispls = (size_t*)rdispls;*/
 	
-	//printf("GDA alltoallv size = %zu\n", (sdispls1[nRanks - 1] + sendcounts1[nRanks - 1]));
 
 	size_t count = sdispls1[nRanks - 1] + sendcounts1[nRanks - 1];
+	size_t count1 = rdispls1[nRanks - 1] + recvcounts1[nRanks - 1];
+	//printf("GDA alltoallv sendsize = %zu, recvsize = %zu\n",count, count1);
+
 	/*float *p = (float*) sendbuff;
 	for (int i = 0; i < 8; i++) {
 		printf("H data = %f\n", p[i]);
 	}*/
 
+	count = count / ncclTypeSize(datatype);
 
         struct ncclInfo info = { ncclFuncAllToAllvGda, "AllToAllvGda",
         sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,

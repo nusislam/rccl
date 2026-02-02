@@ -409,6 +409,7 @@ struct alignas(16) ncclDevWorkColl {
   void* sndbuff;
   int size;
   int rank;
+  //size_t *sizes;
   size_t *sendSizes;
   size_t *sendDispls;
   size_t *recvSizes;
