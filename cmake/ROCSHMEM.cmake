@@ -46,6 +46,7 @@ function(add_rocshmem_targets)
         # Make sure submodule exists (same style as MSCCL++: custom rule + target)
         add_custom_command(
             OUTPUT "${ROCSHMEM_SOURCE}/CMakeLists.txt"
+            COMMAND bash -lc "if [ -e \"${_rccl_root}/ext-src/rocSHMEM\" ] && [ ! -d \"${_rccl_root}/ext-src/rocSHMEM/.git\" ]; then rm -rf \"${_rccl_root}/ext-src/rocSHMEM\"; fi"
             COMMAND git submodule update --init --depth 1 --filter=blob:none -- ext-src/rocSHMEM
             COMMAND git -C "${_rccl_root}/ext-src/rocSHMEM" sparse-checkout init --cone
             COMMAND git -C "${_rccl_root}/ext-src/rocSHMEM" sparse-checkout set projects/rocshmem
