@@ -10,5 +10,5 @@
 	shallow = true
 [submodule "ext-src/rocSHMEM"]
 	path = ext-src/rocSHMEM
-	url = https://github.com/Yiltan/rocSHMEM.git
-	branch = alltoallv
+	url = https://github.com/ROCm/rocm-systems.git
+	branch = users/yiltan/alltoallv-large-msg

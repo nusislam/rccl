@@ -39,13 +39,16 @@ function(add_rocshmem_targets)
     # If no pre-existing installation, build from submodule into ext/rocshmem
     if(NOT rocshmem_static_FOUND)
         set(_rccl_root            "${CMAKE_SOURCE_DIR}")
-        set(ROCSHMEM_SOURCE       "${_rccl_root}/ext-src/rocSHMEM")
+        # rocSHMEM now lives inside the rocm-systems monorepo submodule
+        set(ROCSHMEM_SOURCE       "${_rccl_root}/ext-src/rocSHMEM/projects/rocshmem")
         set(ROCSHMEM_INSTALL_DIR  "${_rccl_root}/ext/rocshmem")
 
         # Make sure submodule exists (same style as MSCCL++: custom rule + target)
         add_custom_command(
             OUTPUT "${ROCSHMEM_SOURCE}/CMakeLists.txt"
-            COMMAND git submodule update --init --recursive ext-src/rocSHMEM
+            COMMAND git submodule update --init --depth 1 --filter=blob:none --no-recurse-submodules ext-src/rocSHMEM
+            COMMAND git -C "${_rccl_root}/ext-src/rocSHMEM" sparse-checkout init --cone
+            COMMAND git -C "${_rccl_root}/ext-src/rocSHMEM" sparse-checkout set projects/rocshmem
             WORKING_DIRECTORY "${_rccl_root}"
             COMMENT "Checking out submodule: ext-src/rocSHMEM"
             VERBATIM
@@ -72,7 +75,6 @@ function(add_rocshmem_targets)
             TEST_COMMAND        ""
             DEPENDS             rocshmem_checkout_submodule   
 
-            # Rocshmem submodule commit hash -> commit b28a56bd54ccc581d05a439ffa466c3dacb3385
             # The project has its own scripts; we replicate the README sequence:
             CONFIGURE_COMMAND   ""
             BUILD_COMMAND
