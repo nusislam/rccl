@@ -261,6 +261,19 @@ ncclResult_t ncclAllToAll_impl(const void* sendbuff, void* recvbuff, size_t coun
   }
 }
 
+struct hostFunc{
+	void* q;
+	void* p;
+	int size;
+};
+
+void CbFunction(void* userData) {
+    
+    //std::cout << "Host callback executed. Data: " << *value << std::endl;
+    struct hostFunc* value = static_cast<struct hostFunc*>(userData);
+    memcpy(value->q, value->p, value->size);
+}
+
 NCCL_API(ncclResult_t, ncclAllToAllv, const void *sendbuff, const size_t sendcounts[], const size_t sdispls[],
     void *recvbuff, const size_t recvcounts[], const size_t rdispls[],
     ncclDataType_t datatype, ncclComm_t comm, hipStream_t stream);
@@ -302,22 +315,27 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 		sendcounts1[i] = sendcounts[i] * ncclTypeSize(datatype);
                 recvcounts1[i] = recvcounts[i] * ncclTypeSize(datatype);
 	}
-	/*for (int i = 0; i < nRanks; i++) {
+	for (int i = 0; i < nRanks; i++) {
 		sizes[i] = sendcounts1[i];
 		sizes[nRanks + i] = sdispls1[i];
 		sizes[2*nRanks + i] = recvcounts1[i];
                 sizes[3*nRanks + i] = rdispls1[i];
-	}*/	
+	}	
+
+	/*struct hostFunc h;
+	h.q = comm->hSize;
+	h.p = sizes;
+	h.size = 4*nRanks*sizeof(size_t);
+
+	hipLaunchHostFunc(stream, CbFunction, &h);*/
 
 
-	/*for (int i = 0; i < nRanks; i++) {
-		printf("H recvSize = %zu, rdisps = %zu, i = %d, rank = %d\n", recvcounts1[i], rdispls1[i], i, rank);
-	}*/
+	hipMemcpyAsync(comm->sizes, sizes, 4 * nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 
-	hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	/*hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 	hipMemcpyAsync(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 	hipMemcpyAsync(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
+	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);*/
 
 	/*hipMemcpy(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
         hipMemcpy(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);

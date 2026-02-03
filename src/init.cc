@@ -2157,7 +2157,12 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(64*1024*1024));
     }
 
-    //hipMalloc((void**)&comm->sizes, job->nranks * 4 * sizeof(size_t));
+    hipMalloc((void**)&comm->sizes, job->nranks * 4 * sizeof(size_t));
+
+    /*comm->hSize = (size_t*) malloc(job->nranks * 4 * sizeof(size_t));
+    hipHostRegister(comm->hSize, job->nranks * 4 * sizeof(size_t), hipHostRegisterMapped);
+    hipHostGetDevicePointer((void**)&comm->sizes, comm->hSize, 0);*/
+
     comm->sendSizes = (size_t*)rocshmem::rocshmem_malloc(job->nranks  * sizeof(size_t));
     comm->sendDispls = (size_t*)rocshmem::rocshmem_malloc(job->nranks * sizeof(size_t));
 

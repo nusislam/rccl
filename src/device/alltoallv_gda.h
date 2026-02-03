@@ -19,20 +19,16 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 
   	size_t srcOffset = 0;
 
-	/*if (tid == 0) {
-           printf("Problem\n");
-        }*/
-
 	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
             tid, nThreads, 0, nullptr, false, 1, (void **)&work->sendbuff, 1, (void **)&work->sndbuff,
             (work->size));
 
-	/*reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
+	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
             tid, nThreads, 0, nullptr, false, 1, (void **)&work->sizes, 1, (void **)&work->sendSizes,
             (ssize_t)(num_pes*sizeof(size_t)));
 
 	void* dstPtrs[1];
-        void* srcPtrs[1];*/
+        void* srcPtrs[1];
 
 	/*for (int i = 0; i < num_pes; i++) {
 		printf("i = %d, sendSize = %zu\n", i, work->sendSizes[i]);
@@ -59,6 +55,9 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
             tid, nThreads, 0, nullptr, false, 1, srcPtrs, 1, dstPtrs,
             (ssize_t)(num_pes*sizeof(size_t)));*/
 
+	work->sendDispls = (size_t*)work->sizes + num_pes;
+        work->recvSizes = (size_t*)work->sizes + 2 * num_pes;
+        work->recvDispls = (size_t*)work->sizes + 3 * num_pes;
 
 	rocshmem::rocshmem_char_alltoallv_wg(work->team, (char*)work->tempbuff, work->recvSizes, work->recvDispls, 
 			(char*)work->sndbuff, work->sendSizes, work->sendDispls);

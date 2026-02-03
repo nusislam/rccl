@@ -411,7 +411,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
 	if (task->func == ncclFuncAllToAllvGda) {
 	    devWork.rank = comm->rank;
 	    //printf("Size = %zu\n", devWork.size);
-	    //devWork.sizes = comm->sizes;		
+	    devWork.sizes = comm->sizes;		
 	    devWork.sendSizes = comm->sendSizes;
     	    devWork.sendDispls = comm->sendDispls;
 	    devWork.recvSizes = comm->recvSizes;
