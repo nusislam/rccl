@@ -42,7 +42,7 @@
 #include <rocshmem/rocshmem.hpp>
 #endif
 
-extern const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+4];
+extern const char* ncclFuncStr[NCCL_NUM_FUNCTIONS+5];
 
 extern const char* ncclAlgoStr[NCCL_NUM_ALGORITHMS];
 
@@ -802,7 +802,7 @@ inline int ncclDevFuncId(int coll, int devRedOp, int type, int algo, int proto, 
   if (coll == ncclFuncBroadcast) {
     key = ((uint64_t)(coll     & RCCL_FUNC_ID_MASK) << RCCL_COLL_SHIFT ) |
           ((uint64_t)(proto    & RCCL_FUNC_ID_MASK) << RCCL_PROTO_SHIFT);
-  } else if (coll == ncclFuncSendRecv || coll == ncclFuncAllToAllPivot || coll == ncclFuncAllToAllGda || coll == ncclFuncAllToAllvGda) {
+  } else if (coll == ncclFuncSendRecv || coll == ncclFuncAllToAllPivot || coll == ncclFuncAllToAllGda || coll == ncclFuncAllToAllvGda || coll == ncclFuncAllToAllvGdaSm) {
     key = ((uint64_t)(coll     & RCCL_FUNC_ID_MASK) << RCCL_COLL_SHIFT );
   } else {
     key = ((uint64_t)(coll     & RCCL_FUNC_ID_MASK) << RCCL_COLL_SHIFT ) |

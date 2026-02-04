@@ -329,47 +329,32 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 
 	hipLaunchHostFunc(stream, CbFunction, &h);*/
 
-
 	hipMemcpyAsync(comm->sizes, sizes, 4 * nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-
-	/*hipMemcpyAsync(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-	hipMemcpyAsync(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-	hipMemcpyAsync(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
-	hipMemcpyAsync(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);*/
-
-	/*hipMemcpy(comm->sendSizes, sendcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
-        hipMemcpy(comm->sendDispls, sdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
-        hipMemcpy(comm->recvSizes, recvcounts1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);
-        hipMemcpy(comm->recvDispls, rdispls1, nRanks * sizeof(size_t), hipMemcpyHostToDevice);*/
-
-	//CUdeviceptr base_address;
-    	//size_t allocated_size;
-
-	//cuMemGetAddressRange(&base_address, &allocated_size, (CUdeviceptr)sendbuff);
-	/*comm->sendDispls = (size_t*)sdispls;
-	comm->recvSizes = (size_t*)recvcounts;
-        comm->recvDispls = (size_t*)rdispls;*/
-	
 
 	size_t count = sdispls1[nRanks - 1] + sendcounts1[nRanks - 1];
 	size_t count1 = rdispls1[nRanks - 1] + recvcounts1[nRanks - 1];
 	//printf("GDA alltoallv sendsize = %zu, recvsize = %zu\n",count, count1);
 
-	/*float *p = (float*) sendbuff;
-	for (int i = 0; i < 8; i++) {
-		printf("H data = %f\n", p[i]);
-	}*/
-
 	count = count / ncclTypeSize(datatype);
 
-        struct ncclInfo info = { ncclFuncAllToAllvGda, "AllToAllvGda",
-        sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,
-        ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
+	if ((count * ncclTypeSize(datatype)) <= 131072) {
+		struct ncclInfo info = { ncclFuncAllToAllvGdaSm, "AllToAllvGdaSm",
+                sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,
+                ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
 
-        return ncclEnqueueCheck(&info);
+                return ncclEnqueueCheck(&info);
+	} else {
+
+        	struct ncclInfo info = { ncclFuncAllToAllvGda, "AllToAllvGda",
+        	sendbuff, recvbuff, count, datatype, ncclSum, 0, comm, stream,
+        	ALLTOALL_PIVOT_CHUNKSTEPS, ALLTOALL_PIVOT_SLICESTEPS, nullptr };
+
+        	return ncclEnqueueCheck(&info);
+	}
     }
 #endif
   if (!mscclIsCaller()) Recorder::instance().skip(true);
+
   NCCLCHECK(ncclGroupStart());
   for (int r=0; r<nRanks; r++) {
     NCCLCHECK(ncclSend(

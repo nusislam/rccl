@@ -153,6 +153,8 @@ static inline int ncclFuncTrafficPerByte(ncclFunc_t func, int nRanks) {
   case ncclFuncAllReduce: return 2;
   case ncclFuncAllGather: return nRanks;
   case ncclFuncReduceScatter: return nRanks;
+  case ncclFuncAllToAllvGda: return nRanks;
+  case ncclFuncAllToAllvGdaSm: return nRanks;
   default: return 1;
   }
 }
@@ -397,7 +399,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     //[Added-comment] opCount is missing for collDevWork, adding here
     devWork.opCount = task->opCount;
 #ifdef ENABLE_ROCSHMEM
-    if (comm->enableRocshmem && (task->func == ncclFuncAllToAllGda || task->func == ncclFuncAllToAllvGda)) {
+    if (comm->enableRocshmem && (task->func == ncclFuncAllToAllGda || task->func == ncclFuncAllToAllvGda || task->func == ncclFuncAllToAllvGdaSm)) {
         devWork.enableRocshmem = comm->enableRocshmem;
         devWork.team = comm->team_reduce_world_dup;
 
@@ -408,7 +410,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
 
 	//if (task->func == ncclFuncAllToAllGda) 
         devWork.size = task->count;
-	if (task->func == ncclFuncAllToAllvGda) {
+	if (task->func == ncclFuncAllToAllvGda || task->func == ncclFuncAllToAllvGdaSm) {
 	    devWork.rank = comm->rank;
 	    //printf("Size = %zu\n", devWork.size);
 	    devWork.sizes = comm->sizes;		
@@ -759,7 +761,7 @@ static ncclResult_t scheduleCollTasksToPlan(
         proxyOp.incWorkCounter = true;
         addWorkBatchToPlan(comm, plan, c, workNode->workType, task->devFuncId, plan->workBytes);
         // Set pattern to profiler to add a proxy profiler for kernel events
-        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda) {
+        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda && task->func != ncclFuncAllToAllvGdaSm) {
             NCCLCHECK(addProxyOpIfNeeded(comm, plan, &proxyOp));
             NCCLCHECK(addProfilerProxyOpIfNeeded(comm, plan, &proxyOp));
 	}
@@ -908,7 +910,7 @@ static ncclResult_t scheduleCollTasksToPlan(
         // Coverity reports "proxyOp->connection" as being possibly uninitialized.  It's hard to
         // determine if that's actually true but it's also not clear if that would be an issue.
         // coverity[uninit_use_in_call:FALSE]
-        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda) {
+        if (task->func != ncclFuncAllToAllGda && task->func != ncclFuncAllToAllvGda && task->func != ncclFuncAllToAllvGdaSm) {
             NCCLCHECK(addProxyOpIfNeeded(comm, plan, proxyOp));
             NCCLCHECK(addProfilerProxyOpIfNeeded(comm, plan, proxyOp));
         }
@@ -1816,12 +1818,22 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   cudaStream_t launchStream = planner->streams->stream;
   void* extra[] = {plan->kernelArgs, &plan->kernelArgsSize};
 
+  struct ncclTaskColl* task = ncclIntruQueueHead(&plan->collTaskQueue);
+
   auto event = latency_profiler::collTraceAquireEventBaseline(plan, launchStream);
   if (planner->numStreams == 1 && !plan->persistent) {
     latency_profiler::collTraceRecordStartEvent(comm, launchStream, event.get());
     comm->lastStream = planner->streams->stream;
-    CUDACHECKGOTO(hipExtLaunchKernel(plan->kernelFn, grid, block, extra, 0, launchStream, NULL, comm->doneEvent, 0), ret, do_return);
+    if (task != NULL && task->func == ncclFuncAllToAllvGda) {
 
+      //printf("Num channels = %d\n", nChannels);
+
+      CUDACHECKGOTO(hipLaunchCooperativeKernel(plan->kernelFn, grid, block, extra, 0, launchStream), ret, do_return);
+
+    } else {
+       CUDACHECKGOTO(hipExtLaunchKernel(plan->kernelFn, grid, block, extra, 0, launchStream, NULL, comm->doneEvent, 0), ret, do_return);
+
+    }
     latency_profiler::collTraceRecordEndEvent(comm, plan, launchStream, std::move(event));
     return ncclSuccess;
   }
@@ -2057,7 +2069,7 @@ static ncclResult_t updateCollCostTable(
     float** collCostTable) {
   float (*table)[NCCL_NUM_PROTOCOLS] = (float (*)[NCCL_NUM_PROTOCOLS])collCostTable;
 
-  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot || info->func == ncclFuncAllToAllGda || info->func == ncclFuncAllToAllvGda) {
+  if (comm->nRanks == 1 || info->func == ncclFuncAllToAllPivot || info->func == ncclFuncAllToAllGda || info->func == ncclFuncAllToAllvGda || info->func == ncclFuncAllToAllvGdaSm) {
     table[NCCL_ALGO_RING][NCCL_PROTO_SIMPLE] = 0.0;
     return ncclSuccess;
   }
@@ -2184,8 +2196,18 @@ static ncclResult_t topoGetAlgoInfo(
     INFO(NCCL_INIT, "post-adjustment based on threadThreshold:%i nBytes:%lu nc:%i", threadThreshold, nBytes, nc);
     rcclOverrideChannels(comm, info->func, nBytes, nc);
   }
-  
+
+#ifdef ENABLE_ROCSHMEM 
+  if (info->func == ncclFuncAllToAllvGda || info->func == ncclFuncAllToAllvGdaSm) {
+	if (info->count <= 131072) {
+		nc = 1;
+	}		
+	nc = std::min(nc, 32);
+        comm->nChannels = std::min(comm->nChannels, 32);
+  }
+#endif
   rcclRestrictMaxChannels(comm, nc);
+  //}
 
 #if defined(__HIP_PLATFORM_AMD__) || defined(__HIPCC__)
 #else
@@ -2365,6 +2387,9 @@ static ncclResult_t calcCollChunking(
     pattern = ncclPatternRing;
     break;
   case ncclFuncAllToAllvGda:
+    pattern = ncclPatternRing;
+    break; 
+  case ncclFuncAllToAllvGdaSm:
     pattern = ncclPatternRing;
     break;  
   case ncclFuncAllReduce:
@@ -2789,7 +2814,7 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
       t->root = info->root;
       t->datatype = info->datatype;
       size_t elementSize = ncclTypeSize(t->datatype);
-      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot || t->func == ncclFuncAllToAllGda || t->func == ncclFuncAllToAllvGda) {
+      if (t->func == ncclFuncAllGather || t->func == ncclFuncBroadcast || t->func == ncclFuncAllToAllPivot || t->func == ncclFuncAllToAllGda || t->func == ncclFuncAllToAllvGda || t->func == ncclFuncAllToAllvGdaSm) {
         t->count *= elementSize;
         t->datatype = ncclInt8;
         elementSize = 1;

@@ -7,18 +7,15 @@
 #include "device.h"
 #include "collectives.h"
 #include "primitives.h"
-#include <hip/hip_cooperative_groups.h>
 
 #ifdef ENABLE_ROCSHMEM
 #include <rocshmem/rocshmem.hpp>
 
 template<typename T, typename RedOp>
-struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
+struct RunWorkColl<ncclFuncAllToAllvGdaSm, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE> {
   __device__ __forceinline__ void run(int tid, int nThreads, struct ncclDevWorkColl* work) {
     //if (blockIdx.x == 0) {
         int num_pes = rocshmem::rocshmem_n_pes();
-	using namespace cooperative_groups;
-        grid_group grid = this_grid();
 	int numBlocks = gridDim.x;
   	size_t srcOffset = 0;
 	ssize_t recvSize;
@@ -31,9 +28,6 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 	reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
             tid, nThreads, 0, nullptr, false, 1, (void **)&src, 1, (void **)&dst,
             sizePerBlock);
-
-	if (numBlocks > 1)
-		grid.sync();
 
 	/*reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
             tid, nThreads, 0, nullptr, false, 1, (void **)&work->sizes, 1, (void **)&work->sendSizes,
@@ -51,9 +45,6 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 	   recvSize = work->recvDispls[num_pes - 1] + work->recvSizes[num_pes - 1];
 	   sizePerBlock = recvSize/numBlocks;
 	}
-
-	if (numBlocks > 1)
-		grid.sync();
 
 	void *srcR = (T*)work->tempbuff + blockIdx.x * sizePerBlock;
         void *dstR = (T*)work->recvbuff + blockIdx.x * sizePerBlock;
