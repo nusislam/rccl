@@ -22,8 +22,8 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 
 	work->sendSizes = (size_t*)work->sizes;
 	work->sendDispls = (size_t*)work->sizes + num_pes;
-        work->recvSizes = (size_t*)work->sizes + 2 * num_pes;
-        work->recvDispls = (size_t*)work->sizes + 3 * num_pes;
+    work->recvSizes = (size_t*)work->sizes + 2 * num_pes;
+    work->recvDispls = (size_t*)work->sizes + 3 * num_pes;
 
 	if (blockIdx.x >= num_pes)
 		return;
@@ -77,7 +77,7 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 	       }*/
 
 	       void *srcR = (void*)((char*)work->tempbuff + 2*work->rank*work->size + i*1024*1024);
-               void *dstR = (void*)((char*)work->recvbuff + work->recvDispls[i]);
+           void *dstR = (void*)((char*)work->recvbuff + work->recvDispls[i]);
 
 	       ssize_t recvSize =  work->recvSizes[i];
 	       reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
