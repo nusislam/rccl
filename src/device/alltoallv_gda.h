@@ -36,20 +36,18 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 	
 	if (work->sendSizes[i] != 0) {
 
-	       void* src = (char*)work->sendbuff + work->sendDispls[i];
-               void* dst = (char*)work->sndbuff + work->sendDispls[i];
-
-	       ssize_t sendSize = work->sendSizes[i];
-	       reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
-            	tid, nThreads, 0, nullptr, false, 1, (void **)&src, 1, (void **)&dst,
-            	sendSize);   
-
-	       void* src1 = (char*)work->sndbuff + work->sendDispls[i];
-               void* dst1 = (char*)work->tempbuff + 2*work->size*i + work->rank*1024*1024;
-
-	       rocshmem::rocshmem_char_put_nbi_wg((char*)dst1, (char*)src1, work->sendSizes[i], i);
-
-	       if (threadIdx.x == 0) { 
+            void* src = (char*)work->sendbuff + work->sendDispls[i];
+            void* dst = (char*)work->sndbuff + work->sendDispls[i];
+            ssize_t sendSize = work->sendSizes[i];
+            reduceCopy<COLL_UNROLL, USE_ACC, RedOp, T, 0,1, 1, 0, 1, 1, 0>(
+            tid, nThreads, 0, nullptr, false, 1, (void **)&src, 1, (void **)&dst,
+            sendSize);   
+            
+	    void* src1 = (char*)work->sndbuff + work->sendDispls[i];
+            void* dst1 = (char*)work->tempbuff + 2*work->size*i + work->rank*1024*1024;
+            rocshmem::rocshmem_char_put_nbi_wg((char*)dst1, (char*)src1, work->sendSizes[i], i);
+            
+	    if (threadIdx.x == 0) { 
 	       
 	          uint64_t *destFlag = work->flagbuff + i*num_pes + work->rank;
 	          uint64_t *localFlag = work->flagbuff + work->rank*num_pes + i;
@@ -64,10 +62,10 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
 
 	       	  //rocshmem::rocshmem_uint64_wait_until(p, rocshmem::ROCSHMEM_CMP_EQ, val);
 		  //while (*p != val) {
-		  int ret = rocshmem::rocshmem_uint64_test(destFlag, rocshmem::ROCSHMEM_CMP_EQ, val);
-		  if (ret == 0) {
-			printf("problem: expect = %lld, got = %lld\n", val, *destFlag);
-		  }
+                  int ret = rocshmem::rocshmem_uint64_test(destFlag, rocshmem::ROCSHMEM_CMP_EQ, val);
+                  if (ret == 0) {
+                     printf("problem: expect = %lld, got = %lld\n", val, *destFlag);
+                  }
 
 		  //printf("Back from wait val = %zu, p = %zu, i = %d, rank = %d\n", val, *p, i, work->rank);
 	       }
