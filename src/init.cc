@@ -58,7 +58,7 @@
 
 #ifdef ENABLE_ROCSHMEM
 #include <rocshmem/rocshmem.hpp>
-#define NUM_SYM_BUF 4
+#define NUM_SYM_BUF 2
 #endif
 
 
@@ -2151,10 +2151,13 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
    
     comm->sourceRshmem = (void**) malloc(NUM_SYM_BUF * sizeof(void *));
     comm->destRshmem = (void**) malloc(NUM_SYM_BUF * sizeof(void *));
+    comm->flagRshmem = (void**) malloc(NUM_SYM_BUF * sizeof(void *));
  
     for (int i = 0; i < NUM_SYM_BUF; i++) { 
-    	comm->sourceRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(64*1024*1024));
-    	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(64*1024*1024));
+    	comm->sourceRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(32*1024*1024));
+    	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(32*1024*1024));
+    	comm->flagRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(job->nranks*job->nranks*sizeof(uint64_t)));
+	//hipMemset(comm->flagRshmem[i], 0, comm->nRanks*comm->nRanks*sizeof(uint64_t));
     }
 
     hipMalloc((void**)&comm->sizes, job->nranks * 4 * sizeof(size_t));
@@ -2176,6 +2179,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     comm->rocshmemThreshold = rcclParamRocshmemThreshold();
     comm->numSymBuf = NUM_SYM_BUF;
     comm->symId = 0;
+    comm->seq = 0;
     //rocshmem::rocshmem_team_t team_reduce_world_dup;
     comm->team_reduce_world_dup = rocshmem::ROCSHMEM_TEAM_INVALID;
     rocshmem::rocshmem_team_split_strided(rocshmem::ROCSHMEM_TEAM_WORLD, 0, 1, job->nranks, nullptr, 0,
@@ -3019,10 +3023,18 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
   if (comm->enableRocshmem) {
      for (int i = 0; i < NUM_SYM_BUF; i++) {	  
      	rocshmem::rocshmem_free(comm->sourceRshmem[i]);
-     	rocshmem::rocshmem_free(comm->destRshmem[i]);	  
+     	rocshmem::rocshmem_free(comm->destRshmem[i]);	 
+     	rocshmem::rocshmem_free(comm->flagRshmem[i]);	  
+
      }
+     rocshmem::rocshmem_free(comm->sendSizes);
+     rocshmem::rocshmem_free(comm->sendDispls);
+     rocshmem::rocshmem_free(comm->recvSizes);
+     rocshmem::rocshmem_free(comm->recvDispls);
+
      free(comm->sourceRshmem);
      free(comm->destRshmem);
+     free(comm->flagRshmem);
 
     //TODO: subcomm check
     rocshmem::rocshmem_team_t  team;

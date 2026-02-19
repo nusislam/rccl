@@ -733,11 +733,13 @@ struct ncclComm {
   // circular ring buffer in rocshmem symmetric heap
   void** sourceRshmem;
   void** destRshmem;
+  void** flagRshmem;
   rocshmem::rocshmem_team_t team_reduce_world_dup;
   int enableRocshmem;
   int rocshmemThreshold;
   int numSymBuf;
   int symId;
+  int seq;
   size_t* hSize;
   size_t* sizes;
   size_t* sendSizes;

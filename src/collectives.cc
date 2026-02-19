@@ -331,6 +331,7 @@ ncclResult_t ncclAllToAllv_impl(const void *sendbuff, const size_t sendcounts[],
 
 	hipMemcpyAsync(comm->sizes, sizes, 4 * nRanks * sizeof(size_t), hipMemcpyHostToDevice, stream);
 
+	comm->seq++;
 	size_t count = sdispls1[nRanks - 1] + sendcounts1[nRanks - 1];
 	size_t count1 = rdispls1[nRanks - 1] + recvcounts1[nRanks - 1];
 	//printf("GDA alltoallv sendsize = %zu, recvsize = %zu\n",count, count1);

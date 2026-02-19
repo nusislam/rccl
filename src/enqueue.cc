@@ -405,6 +405,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
 
         devWork.sndbuff = (void*)comm->sourceRshmem[comm->symId];
         devWork.tempbuff = (void*)comm->destRshmem[comm->symId];
+        devWork.flagbuff = (uint64_t*)comm->flagRshmem[comm->symId];
 
         comm->symId = (comm->symId + 1) % comm->numSymBuf;
 
@@ -418,6 +419,7 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
     	    devWork.sendDispls = comm->sendDispls;
 	    devWork.recvSizes = comm->recvSizes;
             devWork.recvDispls = comm->recvDispls;
+	    devWork.flagVal = comm->seq;
 	}		
     }
 #endif
@@ -1824,13 +1826,12 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan
   if (planner->numStreams == 1 && !plan->persistent) {
     latency_profiler::collTraceRecordStartEvent(comm, launchStream, event.get());
     comm->lastStream = planner->streams->stream;
-    if (task != NULL && task->func == ncclFuncAllToAllvGda) {
+    //if (task != NULL && task->func == ncclFuncAllToAllvGda) {
+    if (task != NULL) {
 
-      //printf("Num channels = %d\n", nChannels);
+      /*CUDACHECKGOTO(hipLaunchCooperativeKernel(plan->kernelFn, grid, block, extra, 0, launchStream), ret, do_return);
 
-      CUDACHECKGOTO(hipLaunchCooperativeKernel(plan->kernelFn, grid, block, extra, 0, launchStream), ret, do_return);
-
-    } else {
+    } else {*/
        CUDACHECKGOTO(hipExtLaunchKernel(plan->kernelFn, grid, block, extra, 0, launchStream, NULL, comm->doneEvent, 0), ret, do_return);
 
     }

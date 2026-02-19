@@ -407,8 +407,10 @@ struct alignas(16) ncclDevWorkColl {
   int enableRocshmem;
   void* tempbuff;
   void* sndbuff;
+  uint64_t* flagbuff;
   int size;
   int rank;
+  uint64_t flagVal; 
   size_t *sizes;
   size_t *sendSizes;
   size_t *sendDispls;
