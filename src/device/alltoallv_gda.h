@@ -43,7 +43,7 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
             tid, nThreads, 0, nullptr, false, 1, (void **)&src, 1, (void **)&dst,
             sendSize);   
             
-	    void* src1 = (char*)work->sndbuff + work->sendDispls[i];
+            void* src1 = (char*)work->sndbuff + work->sendDispls[i];
             void* dst1 = (char*)work->tempbuff + 2*work->size*i + work->rank*1024*1024;
             rocshmem::rocshmem_char_put_nbi_wg((char*)dst1, (char*)src1, work->sendSizes[i], i);
             
@@ -67,7 +67,7 @@ struct RunWorkColl<ncclFuncAllToAllvGda, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SI
                      printf("problem: expect = %lld, got = %lld\n", val, *destFlag);
                   }
 
-		  //printf("Back from wait val = %zu, p = %zu, i = %d, rank = %d\n", val, *p, i, work->rank);
+                  //printf("Back from wait val = %zu, p = %zu, i = %d, rank = %d\n", val, *p, i, work->rank);
 	       }
 
 	       __syncthreads();
