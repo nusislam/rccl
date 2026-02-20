@@ -2154,9 +2154,9 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     comm->flagRshmem = (void**) malloc(NUM_SYM_BUF * sizeof(void *));
  
     for (int i = 0; i < NUM_SYM_BUF; i++) { 
-    	comm->sourceRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(32*1024*1024));
-    	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(32*1024*1024));
-    	comm->flagRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(job->nranks*job->nranks*sizeof(uint64_t)));
+    	comm->sourceRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(128*1024*1024));
+    	comm->destRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(128*1024*1024));
+    	comm->flagRshmem[i] = (void *)rocshmem::rocshmem_malloc((size_t)(job->nranks*sizeof(uint64_t)));
 	//hipMemset(comm->flagRshmem[i], 0, comm->nRanks*comm->nRanks*sizeof(uint64_t));
     }
 
